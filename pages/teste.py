@@ -1,214 +1,241 @@
+import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-def analisar_frequencia_chuva_extrema_multianual(lista_arquivos_dados, nome_cidade, anos_analise=5, limiar_chuva_mm=50.0):
-    """
-    Analisa a frequência de eventos extremos de chuva para uma cidade,
-    considerando dados de múltiplos arquivos (ex: um por ano).
+# Funções auxiliares para manter o código da função principal mais limpo
+def processar_arquivo_individual(uploaded_file, nome_arquivo, col_data, col_precipitacao):
+    """Processa um único arquivo CSV carregado."""
+    mensagens_processamento = []
+    df_selecionado = None
+    try:
+        df_anual = pd.read_csv(
+            uploaded_file,
+            decimal=',',
+            thousands='.',
+            encoding='latin1',
+            na_values=['null', 'NULL', '', 'NA', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', '1.#IND', '1.#QNAN', 'N/A', 'NULL', 'NaN', 'nan']
+        )
+        mensagens_processamento.append(f"Lido com sucesso: {nome_arquivo}. Colunas encontradas: {df_anual.columns.tolist()}")
 
-    Args:
-        lista_arquivos_dados (list): Lista de strings com os caminhos para os arquivos CSV.
-        nome_cidade (str): Nome da cidade para análise.
-        anos_analise (int): Número de anos recentes para analisar (usado para filtrar
-                              os dados consolidados).
-        limiar_chuva_mm (float): Limiar em mm para considerar um evento de chuva como extremo.
+        if col_data not in df_anual.columns:
+            mensagens_processamento.append(f"AVISO: Coluna '{col_data}' não encontrada em {nome_arquivo}.")
+            return None, mensagens_processamento
+        if col_precipitacao not in df_anual.columns:
+            mensagens_processamento.append(f"AVISO: Coluna '{col_precipitacao}' não encontrada em {nome_arquivo}.")
+            return None, mensagens_processamento
 
-    Returns:
-        None: Imprime a análise da frequência dos eventos.
+        df_selecionado = df_anual[[col_data, col_precipitacao]].copy()
+        df_selecionado.loc[:, col_precipitacao] = pd.to_numeric(df_selecionado[col_precipitacao], errors='coerce')
+
+        try:
+            df_selecionado.loc[:, col_data] = pd.to_datetime(df_selecionado[col_data], errors='coerce', dayfirst=True)
+        except Exception:
+            try:
+                df_selecionado.loc[:, col_data] = pd.to_datetime(df_selecionado[col_data], errors='coerce')
+            except Exception as e_dt2:
+                mensagens_processamento.append(f"Falha ao converter data em {nome_arquivo}: {e_dt2}. Pulando este arquivo.")
+                return None, mensagens_processamento
+        
+        df_selecionado.dropna(subset=[col_data, col_precipitacao], inplace=True)
+        
+    except pd.errors.EmptyDataError:
+        mensagens_processamento.append(f"Aviso: O arquivo '{nome_arquivo}' está vazio.")
+    except Exception as e:
+        mensagens_processamento.append(f"Ocorreu um erro ao processar o arquivo {nome_arquivo}: {e}")
+    
+    return df_selecionado, mensagens_processamento
+
+def analisar_frequencia_chuva_streamlit(lista_arquivos_carregados, nome_cidade, anos_analise, limiar_chuva_mm):
     """
-    if not lista_arquivos_dados:
-        print("Erro: A lista de arquivos de dados está vazia.")
-        return
+    Analisa a frequência de eventos extremos de chuva para Streamlit.
+    Retorna um dicionário com resultados e mensagens.
+    """
+    resultados = {
+        "mensagens_status": [],
+        "contagem_eventos_df": None,
+        "grafico_eventos": None, # Para o gráfico de barras
+        "mensagem_tendencia": "",
+        "periodo_analisado_str": ""
+    }
+    
+    if not lista_arquivos_carregados:
+        resultados["mensagens_status"].append("Erro: Nenhum arquivo foi carregado.")
+        return resultados
 
     todos_os_dados = []
+    coluna_precipitacao_nome_original = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
+    coluna_data_nome_original = 'Data' # Assumindo que existe uma coluna 'Data'
 
-    print(f"Processando arquivos para a cidade: {nome_cidade}")
-    for arquivo_csv in lista_arquivos_dados:
-        try:
-            # Tentar ler o CSV. Ajuste encoding e separador decimal se necessário.
-            # O cabeçalho fornecido sugere que os nomes das colunas podem ter espaços e acentos.
-            df_anual = pd.read_csv(
-                arquivo_csv,
-                decimal=',',       # Considera vírgula como separador decimal
-                thousands='.',     # Considera ponto como separador de milhar (se houver)
-                encoding='latin1', # Tente 'utf-8' ou 'iso-8859-1' se 'latin1' falhar
-                na_values=['null', 'NULL', '', 'NA', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', '1.#IND', '1.#QNAN', 'N/A', 'NULL', 'NaN', 'nan']
-            )
-            print(f"Lido com sucesso: {arquivo_csv}. Colunas encontradas: {df_anual.columns.tolist()}")
+    resultados["mensagens_status"].append(f"Processando arquivos para a cidade: {nome_cidade}")
 
-            # Padronizar nomes das colunas importantes (ajuste se os nomes exatos variarem)
-            coluna_precipitacao = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
-            coluna_data = 'Data' # Assumindo que existe uma coluna 'Data'
-
-            if coluna_data not in df_anual.columns:
-                print(f"AVISO: Coluna '{coluna_data}' não encontrada em {arquivo_csv}. Tentando inferir data de outra forma ou pulando arquivo.")
-                # Você pode precisar adicionar lógica aqui para lidar com arquivos sem coluna 'Data'
-                # ou se a data estiver em colunas separadas (Dia, Mes, Ano).
-                # Por ora, vamos pular arquivos sem uma coluna de data clara.
-                # Se 'Hora UTC' for relevante, precisará ser combinada com 'Data'.
-                continue # Pula para o próximo arquivo se não houver coluna 'Data'
-
-
-            if coluna_precipitacao not in df_anual.columns:
-                print(f"AVISO: Coluna '{coluna_precipitacao}' não encontrada em {arquivo_csv}. Pulando este arquivo.")
-                continue
-
-            # Selecionar apenas as colunas necessárias para economizar memória
-            df_selecionado = df_anual[[coluna_data, coluna_precipitacao]].copy()
-
-            # Converter coluna de precipitação para numérico.
-            # Erros na conversão viram NaN (Not a Number).
-            df_selecionado.loc[:, coluna_precipitacao] = pd.to_numeric(
-                df_selecionado[coluna_precipitacao], errors='coerce'
-            )
-
-            # Converter coluna 'Data' para datetime
-            # Tenta formatos comuns. Se o seu formato for diferente, ajuste o 'format'.
-            try:
-                df_selecionado.loc[:, coluna_data] = pd.to_datetime(df_selecionado[coluna_data], errors='coerce', dayfirst=True)
-            except Exception as e_dt:
-                print(f"Não foi possível converter a coluna '{coluna_data}' para data em {arquivo_csv} com formato DD/MM/YYYY. Erro: {e_dt}. Tentando outros formatos...")
-                try:
-                    df_selecionado.loc[:, coluna_data] = pd.to_datetime(df_selecionado[coluna_data], errors='coerce') # Tenta inferir
-                except Exception as e_dt2:
-                    print(f"Falha ao converter data em {arquivo_csv} mesmo inferindo: {e_dt2}. Pulando este arquivo.")
-                    continue
-
-
-            # Remover linhas onde a data ou precipitação não puderam ser convertidas
-            df_selecionado.dropna(subset=[coluna_data, coluna_precipitacao], inplace=True)
-
-            todos_os_dados.append(df_selecionado)
-
-        except FileNotFoundError:
-            print(f"Erro: O arquivo '{arquivo_csv}' não foi encontrado.")
-        except pd.errors.EmptyDataError:
-            print(f"Aviso: O arquivo '{arquivo_csv}' está vazio.")
-        except Exception as e:
-            print(f"Ocorreu um erro ao processar o arquivo {arquivo_csv}: {e}")
+    for uploaded_file in lista_arquivos_carregados:
+        df_processado, mensagens_proc = processar_arquivo_individual(
+            uploaded_file, 
+            uploaded_file.name, 
+            coluna_data_nome_original, 
+            coluna_precipitacao_nome_original
+        )
+        resultados["mensagens_status"].extend(mensagens_proc)
+        if df_processado is not None and not df_processado.empty:
+            todos_os_dados.append(df_processado)
 
     if not todos_os_dados:
-        print(f"Nenhum dado válido foi carregado para {nome_cidade}. Encerrando análise.")
-        return
+        resultados["mensagens_status"].append(f"Nenhum dado válido foi carregado para {nome_cidade}. Encerrando análise.")
+        return resultados
 
     df_completo = pd.concat(todos_os_dados, ignore_index=True)
     df_completo.rename(columns={
-        coluna_data: 'data',
-        coluna_precipitacao: 'precipitacao_mm'
+        coluna_data_nome_original: 'data',
+        coluna_precipitacao_nome_original: 'precipitacao_mm'
     }, inplace=True)
 
-    print(f"\nTotal de registros carregados para {nome_cidade} após concatenação: {len(df_completo)}")
+    resultados["mensagens_status"].append(f"Total de registros carregados para {nome_cidade} após concatenação: {len(df_completo)}")
     if df_completo.empty:
-        print("Nenhum dado para analisar após concatenação e limpeza.")
-        return
+        resultados["mensagens_status"].append("Nenhum dado para analisar após concatenação e limpeza.")
+        return resultados
 
-    # Certificar que 'data' é datetime
     df_completo['data'] = pd.to_datetime(df_completo['data'], errors='coerce')
     df_completo.dropna(subset=['data'], inplace=True)
+    if df_completo.empty:
+        resultados["mensagens_status"].append("Nenhum dado com datas válidas encontrado.")
+        return resultados
 
-
-    # Filtrar dados para os últimos 'anos_analise' anos a partir da data mais recente nos dados
     data_mais_recente_nos_dados = df_completo['data'].max()
     data_inicio_analise = data_mais_recente_nos_dados - pd.DateOffset(years=anos_analise)
-
-    df_recente = df_completo[df_completo['data'] >= data_inicio_analise].copy() # Usar .copy() para evitar SettingWithCopyWarning
+    
+    df_recente = df_completo[df_completo['data'] >= data_inicio_analise].copy()
 
     if df_recente.empty:
-        print(f"Não há dados disponíveis para os últimos {anos_analise} anos (a partir de {data_inicio_analise.strftime('%Y-%m-%d')}).")
-        return
+        resultados["mensagens_status"].append(f"Não há dados disponíveis para os últimos {anos_analise} anos (a partir de {data_inicio_analise.strftime('%Y-%m-%d')}).")
+        return resultados
 
-    print(f"Analisando dados de {df_recente['data'].min().strftime('%Y-%m-%d')} até {df_recente['data'].max().strftime('%Y-%m-%d')}.")
-
-    # Identificar eventos de chuva extrema
-    # Usar .loc para atribuição segura para evitar SettingWithCopyWarning
+    resultados["periodo_analisado_str"] = f"Analisando dados de {df_recente['data'].min().strftime('%Y-%m-%d')} até {df_recente['data'].max().strftime('%Y-%m-%d')}."
+    resultados["mensagens_status"].append(resultados["periodo_analisado_str"])
+    
     df_recente.loc[:, 'evento_extremo'] = df_recente['precipitacao_mm'] >= limiar_chuva_mm
-
-    # Agrupar por ano e contar os eventos extremos
     df_recente.loc[:, 'ano'] = df_recente['data'].dt.year
+    
     contagem_eventos_por_ano = df_recente[df_recente['evento_extremo']].groupby('ano').size().reindex(
         range(df_recente['ano'].min(), df_recente['ano'].max() + 1), fill_value=0
     )
+    resultados["contagem_eventos_df"] = contagem_eventos_por_ano.reset_index(name='Numero de Eventos Extremos')
 
 
-    if contagem_eventos_por_ano.sum() == 0: # Verifica se houve algum evento extremo no período
-        print(f"\nNenhum evento de chuva extrema (≥ {limiar_chuva_mm} mm) encontrado para {nome_cidade} nos últimos {anos_analise} anos ({data_inicio_analise.strftime('%Y')} a {data_mais_recente_nos_dados.strftime('%Y')}).")
-        return
-
-    print(f"\nFrequência de eventos de chuva extrema (≥ {limiar_chuva_mm} mm) em {nome_cidade} por ano:")
-    print(contagem_eventos_por_ano)
-
+    if contagem_eventos_por_ano.sum() == 0:
+        resultados["mensagem_tendencia"] = f"Nenhum evento de chuva extrema (≥ {limiar_chuva_mm} mm) encontrado para {nome_cidade} nos últimos {anos_analise} anos ({data_inicio_analise.strftime('%Y')} a {data_mais_recente_nos_dados.strftime('%Y')})."
+        return resultados
+    
     # Análise de tendência simples
     if len(contagem_eventos_por_ano) >= 2:
-        anos_com_dados = contagem_eventos_por_ano[contagem_eventos_por_ano.index >= df_recente['ano'].min()] # Considerar apenas anos com dados efetivos
+        anos_com_dados = contagem_eventos_por_ano[contagem_eventos_por_ano.index >= df_recente['ano'].min()]
         if len(anos_com_dados) < 2:
-            print("\nNão há dados suficientes de anos distintos com eventos para uma análise de tendência.")
-            return
-
-        # Verifica se há uma tendência linear de aumento (muito simplista)
-        # Para uma análise robusta, seriam necessários testes estatísticos (ex: Mann-Kendall)
-        diff_eventos = anos_com_dados.diff().dropna()
-        if not diff_eventos.empty:
-            if (diff_eventos > 0).all():
-                print(f"\nA frequência de eventos extremos aumentou consistentemente ano a ano no período analisado.")
-            elif (diff_eventos < 0).all():
-                print(f"\nA frequência de eventos extremos diminuiu consistentemente ano a ano no período analisado.")
-            elif anos_com_dados.iloc[-1] > anos_com_dados.iloc[0] and len(anos_com_dados) > 2 : # Se o último ano tem mais que o primeiro
-                 # Média da primeira metade vs segunda metade
-                meio = len(anos_com_dados) // 2
-                media_primeira_metade = anos_com_dados.iloc[:meio].mean()
-                media_segunda_metade = anos_com_dados.iloc[meio:].mean()
-                if media_segunda_metade > media_primeira_metade:
-                    print(f"\nA frequência média de eventos extremos parece ter aumentado na segunda metade do período analisado.")
-                elif media_segunda_metade < media_primeira_metade:
-                    print(f"\nA frequência média de eventos extremos parece ter diminuído na segunda metade do período analisado.")
-                else:
-                    print(f"\nA frequência média de eventos extremos parece ter permanecido estável entre as metades do período.")
-            elif anos_com_dados.iloc[-1] == anos_com_dados.iloc[0] and len(anos_com_dados) > 1:
-                 print(f"\nA frequência de eventos extremos no último ano analisado é igual à do primeiro, mas pode ter variado nos anos intermediários.")
-            else:
-                print(f"\nA tendência da frequência de eventos extremos é variável no período analisado.")
+            resultados["mensagem_tendencia"] = "Não há dados suficientes de anos distintos com eventos para uma análise de tendência."
         else:
-            print("\nNão há variação suficiente nos dados para uma análise de tendência simples (ex: apenas um ano com eventos).")
-
+            diff_eventos = anos_com_dados.diff().dropna()
+            if not diff_eventos.empty:
+                if (diff_eventos > 0).all():
+                    resultados["mensagem_tendencia"] = "A frequência de eventos extremos aumentou consistentemente ano a ano no período analisado."
+                elif (diff_eventos < 0).all():
+                    resultados["mensagem_tendencia"] = "A frequência de eventos extremos diminuiu consistentemente ano a ano no período analisado."
+                elif anos_com_dados.iloc[-1] > anos_com_dados.iloc[0] and len(anos_com_dados) > 2:
+                    meio = len(anos_com_dados) // 2
+                    media_primeira_metade = anos_com_dados.iloc[:meio].mean()
+                    media_segunda_metade = anos_com_dados.iloc[meio:].mean()
+                    if media_segunda_metade > media_primeira_metade:
+                        resultados["mensagem_tendencia"] = "A frequência média de eventos extremos parece ter aumentado na segunda metade do período analisado."
+                    elif media_segunda_metade < media_primeira_metade:
+                        resultados["mensagem_tendencia"] = "A frequência média de eventos extremos parece ter diminuído na segunda metade do período analisado."
+                    else:
+                        resultados["mensagem_tendencia"] = "A frequência média de eventos extremos parece ter permanecido estável entre as metades do período."
+                elif anos_com_dados.iloc[-1] == anos_com_dados.iloc[0] and len(anos_com_dados) > 1:
+                    resultados["mensagem_tendencia"] = "A frequência de eventos extremos no último ano analisado é igual à do primeiro, mas pode ter variado nos anos intermediários."
+                else:
+                    resultados["mensagem_tendencia"] = "A tendência da frequência de eventos extremos é variável no período analisado."
+            else:
+                resultados["mensagem_tendencia"] = "Não há variação suficiente nos dados para uma análise de tendência simples (ex: apenas um ano com eventos)."
     elif len(contagem_eventos_por_ano) == 1:
-        print("\nDados de apenas um ano com eventos extremos. Não é possível analisar tendência de aumento ou diminuição.")
+        resultados["mensagem_tendencia"] = "Dados de apenas um ano com eventos extremos. Não é possível analisar tendência de aumento ou diminuição."
     else:
-        print("\nNão há dados suficientes para uma análise de tendência.")
+        resultados["mensagem_tendencia"] = "Não há dados suficientes para uma análise de tendência."
+        
+    return resultados
 
-# --- COMO USAR ---
-# 1. Defina o nome da cidade
-NOME_DA_CIDADE = "SUA_CIDADE_AQUI"  # <--- SUBSTITUA AQUI
+# --- Interface Streamlit ---
+st.set_page_config(layout="wide", page_title="Análise de Chuvas Extremas")
+st.title("🌧️ Análise de Frequência de Chuvas Extremas")
+st.markdown("Carregue seus arquivos CSV de dados meteorológicos para analisar a frequência de eventos de chuva extrema.")
 
-# 2. Crie uma lista com os caminhos para os arquivos CSV da sua cidade.
-#    Estes arquivos devem estar acessíveis para o script (ex: na mesma pasta ou caminho completo).
-#    Se você clonou o repositório do GitHub e está rodando o script de dentro da pasta `CIADM1A`,
-#    os caminhos podem ser algo como:
-#    '2023/arquivo_da_sua_cidade_2023.csv',
-#    '2024/arquivo_da_sua_cidade_2024.csv',
-#    etc.
-#    Para os últimos 5 anos (considerando que estamos em 2025), você precisaria dos dados de
-#    ~metade de 2020, 2021, 2022, 2023, 2024 e talvez a parte de 2025 já disponível.
-#
-#    EXEMPLO (VOCÊ PRECISA AJUSTAR ISTO CONFORME SEUS ARQUIVOS):
-#    lista_arquivos_dados = [
-#        './CIADM1A/2020/NOME_DO_ARQUIVO_DA_CIDADE_2020.csv', # Exemplo de estrutura
-#        './CIADM1A/2021/NOME_DO_ARQUIVO_DA_CIDADE_2021.csv',
-#        './CIADM1A/2022/NOME_DO_ARQUIVO_DA_CIDADE_2022.csv',
-#        './CIADM1A/2023/NOME_DO_ARQUIVO_DA_CIDADE_2023.csv',
-#        './CIADM1A/2024/NOME_DO_ARQUIVO_DA_CIDADE_2024.csv',
-#        # './CIADM1A/2025/NOME_DO_ARQUIVO_DA_CIDADE_2025.csv' # Se já houver dados de 2025
-#    ]
-#
-#    COMO VOCÊ NÃO ESPECIFICOU OS NOMES DOS ARQUIVOS, DEIXAREI UMA LISTA VAZIA.
-#    VOCÊ PRECISA PREENCHER ESSA LISTA CORRETAMENTE.
-lista_arquivos_dados = [] # <--- PREENCHA AQUI COM OS CAMINHOS DOS SEUS ARQUIVOS
+# Inputs na barra lateral
+st.sidebar.header("Parâmetros de Análise")
+nome_cidade_input = st.sidebar.text_input("Nome da Cidade:", placeholder="Ex: São Paulo")
 
-if NOME_DA_CIDADE == "SUA_CIDADE_AQUI" or not lista_arquivos_dados:
-    print("---------------------------------------------------------------------------")
-    print("ATENÇÃO: Configure as variáveis 'NOME_DA_CIDADE' e 'lista_arquivos_dados'")
-    print("         no script antes de executá-lo.")
-    print("         A 'lista_arquivos_dados' deve conter os caminhos para os arquivos CSV")
-    print("         da cidade desejada, cobrindo os últimos 5 anos.")
-    print("---------------------------------------------------------------------------")
-else:
-    analisar_frequencia_chuva_extrema_multianual(lista_arquivos_dados, NOME_DA_CIDADE)
+uploaded_files_input = st.sidebar.file_uploader(
+    "Carregue os arquivos CSV:",
+    type=["csv"],
+    accept_multiple_files=True,
+    help="Selecione um ou mais arquivos CSV. Cada arquivo deve conter uma coluna 'Data' e uma coluna 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'."
+)
+
+anos_analise_input = st.sidebar.number_input("Número de anos recentes para analisar:", min_value=1, max_value=30, value=5)
+limiar_chuva_mm_input = st.sidebar.number_input("Limiar de chuva extrema (mm):", min_value=0.1, value=50.0, step=0.1, format="%.1f")
+
+col1, col2 = st.columns([1,3])
+
+with col1:
+    if st.sidebar.button("🔍 Analisar Dados", use_container_width=True, type="primary"):
+        if not nome_cidade_input:
+            st.sidebar.error("Por favor, insira o nome da cidade.")
+        elif not uploaded_files_input:
+            st.sidebar.error("Por favor, carregue pelo menos um arquivo CSV.")
+        else:
+            with st.spinner(f"Analisando dados para {nome_cidade_input}... Por favor, aguarde."):
+                # Armazenar os resultados na session_state para persistir entre reruns se necessário
+                st.session_state.resultados_analise = analisar_frequencia_chuva_streamlit(
+                    uploaded_files_input, 
+                    nome_cidade_input, 
+                    anos_analise_input, 
+                    limiar_chuva_mm_input
+                )
+    elif 'resultados_analise' not in st.session_state : # Mensagem inicial
+         st.info("⬅️ Preencha os parâmetros ao lado e clique em 'Analisar Dados' para começar.")
+
+
+with col2:
+    if 'resultados_analise' in st.session_state:
+        resultados = st.session_state.resultados_analise
+        
+        st.subheader(f"Resultados para: {nome_cidade_input}")
+        if resultados["periodo_analisado_str"]:
+             st.caption(resultados["periodo_analisado_str"])
+
+        if resultados["contagem_eventos_df"] is not None and not resultados["contagem_eventos_df"].empty:
+            st.markdown("#### Frequência Anual de Eventos Extremos")
+            
+            # Tabela
+            st.dataframe(resultados["contagem_eventos_df"].style.format({"Numero de Eventos Extremos": "{:.0f}"}), use_container_width=True)
+            
+            # Gráfico
+            df_grafico = resultados["contagem_eventos_df"].set_index('ano')
+            st.bar_chart(df_grafico["Numero de Eventos Extremos"])
+            
+            # Métrica de Tendência
+            if resultados["mensagem_tendencia"]:
+                st.markdown("#### Análise de Tendência")
+                st.info(resultados["mensagem_tendencia"])
+        elif resultados["mensagem_tendencia"]: # Caso não haja eventos, mas haja uma mensagem
+             st.info(resultados["mensagem_tendencia"])
+        else:
+            st.warning("Não foram encontrados dados de eventos extremos para exibir.")
+
+
+        with st.expander("Ver Logs de Processamento"):
+            for msg in resultados["mensagens_status"]:
+                if "AVISO:" in msg:
+                    st.warning(msg)
+                elif "Erro:" in msg or "Falha:" in msg:
+                    st.error(msg)
+                else:
+                    st.write(msg)
+    
+st.sidebar.markdown("---")
+st.sidebar.markdown("Desenvolvido como assistente virtual.")
