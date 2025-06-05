@@ -3,140 +3,71 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 
-# Caminho para o arquivo CSV
+# Caminho relativo ao arquivo CSV dentro do projeto
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
-st.title("Comparação Sazonal de Precipitação - Regiões do Brasil (2020-2025)")
+st.title("Padrões Sazonais de Temperatura (2020-2025) - Identificação de Meses/Anos Atípicos")
 
 try:
     # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado, encoding='latin1')
+    df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
-    # Remover espaços extras e normalizar nomes de colunas
-    df_unificado.columns = df_unificado.columns.str.strip()
-    df_unificado.columns = df_unificado.columns.str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    # Lista de regiões e anos únicas
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    
+    # Sempre carregar as regiões Sul e Norte
+    regioes_padrao = ['Sul', 'Norte']
+    
+    # Adicionar opção para escolha de outra região
+    regiao_selecionada = st.selectbox("Selecione uma região adicional para análise:", regioes_disponiveis)
+    
+    # Variável a ser analisada
+    coluna_temp = 'Temp_Media'
 
-    # Verificar colunas disponíveis
-    colunas_disponiveis = df_unificado.columns.tolist()
-    st.write("Colunas disponíveis no dataset:", colunas_disponiveis)
-
-    # Ajustar nome da coluna do mês (corrigindo erro de codificação)
-    nome_coluna_mes = [col for col in colunas_disponiveis if "MA" in col.upper()]
-    if not nome_coluna_mes:
-        st.error("Nenhuma coluna de mês encontrada no dataset. Verifique o cabeçalho do CSV.")
-        st.stop()
-    nome_coluna_mes = nome_coluna_mes[0]  # Pegando a primeira correspondente
-    df_unificado.rename(columns={nome_coluna_mes: "Mês"}, inplace=True)
-
-    # Ajustar nome da coluna de precipitação
-    nome_coluna_precipitacao = [col for col in colunas_disponiveis if "PRECIPITACAO" in col.upper()]
-    if not nome_coluna_precipitacao:
-        st.error("Nenhuma coluna de precipitação encontrada no dataset. Verifique o cabeçalho do CSV.")
-        st.stop()
-    nome_coluna_precipitacao = nome_coluna_precipitacao[0]  # Pegando a primeira correspondente
-
-    df_unificado['Regiao'] = df_unificado['Regiao'].astype(str).str.strip().str.upper()
-
-    # Dicionário para mapear nomes completos das regiões
-    regioes = {
-        "CO": "Centro-Oeste",
-        "N": "Norte",
-        "NE": "Nordeste",
-        "S": "Sul",
-        "SE": "Sudeste"
-    }
-
-    # Aplicar mapeamento de nomes completos e tratar valores não mapeados
-    df_unificado['Regiao_Completa'] = df_unificado['Regiao'].map(regioes)
-
-    # Certificar que 'Mês' é numérico
-    df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
-    df_unificado.dropna(subset=['Mês'], inplace=True)
-
-    # Definir anos e meses únicos
-    meses = sorted(df_unificado['Mês'].unique())
+    # Cores para os anos
+    from matplotlib.cm import get_cmap
+    cmap = get_cmap('coolwarm')
     anos = sorted(df_unificado['Ano'].unique())
+    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
-    # Seleção interativa de duas regiões
-    regioes_disponiveis = sorted(df_unificado['Regiao_Completa'].dropna().unique())
-
-    if len(regioes_disponiveis) < 2:
-        st.error("É necessário pelo menos duas regiões válidas no dataset. Verifique o formato dos dados.")
-        st.stop()
-
-    regiao_A = st.selectbox("Selecione a primeira região:", regioes_disponiveis)
-    regiao_B = st.selectbox("Selecione a segunda região:", [r for r in regioes_disponiveis if r != regiao_A])
-
-    # Filtragem dos dados para cada região selecionada
-    df_regiao_A = df_unificado[df_unificado['Regiao_Completa'] == regiao_A]
-    df_regiao_B = df_unificado[df_unificado['Regiao_Completa'] == regiao_B]
-
-    if df_regiao_A.empty or df_regiao_B.empty:
-        st.warning("Dados não encontrados para uma ou ambas as regiões selecionadas. Verifique os nomes das regiões no CSV.")
-    else:
-        # Agrupar por mês e calcular média de precipitação
-        df_grouped_A = df_regiao_A.groupby(['Ano', 'Mês'])[nome_coluna_precipitacao].mean().unstack(level=0)
-        df_grouped_B = df_regiao_B.groupby(['Ano', 'Mês'])[nome_coluna_precipitacao].mean().unstack(level=0)
-
-        # Cores para os anos
-        from matplotlib.cm import get_cmap
-        cmap = get_cmap('viridis')
-        cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
-
-        # Gerar gráficos para comparação das regiões selecionadas
-        st.subheader(f"Padrões Sazonais de Precipitação - {regiao_A} vs {regiao_B} (2020-2025)")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    for regiao in regioes_padrao + [regiao_selecionada]:
+        df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
+        medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
         
-        fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=True)
-
+        # Identificação de meses/anos atípicos
+        media_geral = medias_mensais[coluna_temp].mean()
+        desvio_padrao = medias_mensais[coluna_temp].std()
+        limite_superior = media_geral + 1.5 * desvio_padrao
+        limite_inferior = media_geral - 1.5 * desvio_padrao
+        
+        meses_atipicos = medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)]
+        
         for ano in anos:
-            if ano in df_grouped_A.columns:
-                axs[0].plot(meses, df_grouped_A[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-            if ano in df_grouped_B.columns:
-                axs[1].plot(meses, df_grouped_B[ano].reindex(meses).values, marker='s', linestyle='--', color=cores_anos[ano], label=str(ano))
+            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_temp].mean()
+            if not df_ano_regiao.empty:
+                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=f'{regiao} - {ano}')
+    
+    ax.set_title("Padrões Sazonais de Temperatura (2020-2025)")
+    ax.set_xlabel("Mês")
+    ax.set_ylabel("Temperatura Média (°C)")
+    ax.set_xticks(range(1, 13))
+    ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+    ax.grid(True)
+    ax.legend(title="Região - Ano")
+    plt.tight_layout()
+    
+    st.pyplot(fig)
 
-        axs[0].set_title(f"Precipitação Mensal Média - {regiao_A}")
-        axs[0].set_ylabel("Precipitação (mm)")
-        axs[0].grid(True)
-        axs[0].legend(title="Ano")
-
-        axs[1].set_title(f"Precipitação Mensal Média - {regiao_B}")
-        axs[1].set_xlabel("Mês")
-        axs[1].set_ylabel("Precipitação (mm)")
-        axs[1].grid(True)
-        axs[1].legend(title="Ano")
-
-        plt.tight_layout()
-        st.pyplot(fig)
-
-        # **Comparação e Identificação de Anomalias**
-        st.markdown("---")
-        st.subheader(f"Análise Comparativa: {regiao_A} vs {regiao_B}")
-
-        df_media_mensal_A = df_grouped_A.mean(axis=1)
-        df_desvio_mensal_A = df_grouped_A.std(axis=1)
-
-        df_media_mensal_B = df_grouped_B.mean(axis=1)
-        df_desvio_mensal_B = df_grouped_B.std(axis=1)
-
-        # **Correção para garantir compatibilidade com JSON**
-        limiar_anomalia = 1.2  # Reduzindo o limite para detectar anomalias menores
-
-        anomalias_A = {
-            str(ano): [int(mes) for mes in ((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs()
-                      [((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs() > limiar_anomalia].index.tolist()]
-            for ano in anos if ano in df_grouped_A.columns
-        }
-
-        anomalias_B = {
-            str(ano): [int(mes) for mes in ((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs()
-                      [((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs() > limiar_anomalia].index.tolist()]
-            for ano in anos if ano in df_grouped_B.columns
-        }
-
-        st.write(f"Meses atípicos em {regiao_A}:", anomalias_A)
-        st.write(f"Meses atípicos em {regiao_B}:", anomalias_B)
+    # Exibir os meses/anos atípicos
+    if not meses_atipicos.empty:
+        st.subheader("Meses/Anos Atípicos Identificados")
+        st.dataframe(meses_atipicos)
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+except KeyError as e:
+    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV.")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
