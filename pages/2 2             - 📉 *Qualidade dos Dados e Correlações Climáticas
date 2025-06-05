@@ -13,6 +13,19 @@ try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
+    # --- CALCULA A TEMPERATURA MÉDIA SE AS COLUNAS DE MAX/MIN EXISTIREM ---
+    # Isso resolve o erro 'Temp_Maxima' se a Temp_Media não estiver direto
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
+        df_unificado['Temp_Media'] = (
+            df_unificado['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
+            df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
+        ) / 2
+    elif 'Temp_Media' not in df_unificado.columns: # Se não tem max/min E não tem Temp_Media, levanta erro
+        st.error("Erro: O arquivo CSV não contém a coluna 'Temp_Media' nem as colunas 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para calcular a temperatura média.")
+        st.stop() # Para a execução do script
+    # --- FIM DO CÁLCULO DA TEMPERATURA MÉDIA ---
+
     # Certificar-se de que a coluna 'Mês' é numérica
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
     df_unificado = df_unificado.dropna(subset=['Mês'])
@@ -27,7 +40,7 @@ try:
 
     # Variáveis a serem plotadas
     variaveis = {
-        'Temperatura Média (°C)': 'Temp_Media',
+        'Temperatura Média (°C)': 'Temp_Media', # Agora 'Temp_Media' será calculada ou já deve existir
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
         'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
@@ -120,13 +133,13 @@ try:
                 st.markdown("- **Radiação atipicamente alta:** Pode beneficiar a geração de energia solar, mas também pode indicar dias com menos cobertura de nuvens, possivelmente associados a períodos de seca ou temperaturas elevadas. Importante para o balanço energético da superfície.")
                 st.markdown("- **Radiação atipicamente baixa:** Sugere maior nebulosidade ou menor insolação, o que pode impactar a produtividade de culturas que dependem de luz e a eficiência de sistemas solares. Pode estar ligada a períodos chuvosos ou de maior cobertura de nuvens.")
         else:
-            st.write("Dados insuficientes para calcular desvios.")
+            st.write("Dados insuficientes para calcular desvios para todos os anos.")
     else:
         st.write("Não há dados suficientes para realizar a análise de variabilidade anual.")
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o nome da coluna '{e}' no seu CSV corresponde exatamente ao esperado: 'Temp_Media', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' ou 'RADIACAO GLOBAL (Kj/m²)'.")
+    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média (TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C) e TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)).")
 except Exception as e:
     st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
