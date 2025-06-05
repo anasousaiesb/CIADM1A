@@ -44,7 +44,7 @@ try:
         st.stop()
 
     regiao_A = st.selectbox("Selecione a primeira região:", regioes_disponiveis)
-    regiao_B = st.selectbox("Selecione a segunda região:", regioes_disponiveis)
+    regiao_B = st.selectbox("Selecione a segunda região:", [r for r in regioes_disponiveis if r != regiao_A])
 
     # Filtragem dos dados para cada região selecionada
     df_regiao_A = df_unificado[df_unificado['Regiao_Completa'] == regiao_A]
