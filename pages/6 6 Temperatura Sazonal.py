@@ -20,12 +20,13 @@ try:
     colunas_disponiveis = df_unificado.columns.tolist()
     st.write("Colunas disponíveis no dataset:", colunas_disponiveis)
 
-    # Ajustar nome da coluna do mês
-    nome_coluna_mes = [col for col in colunas_disponiveis if "MES" in col.upper()]
+    # Ajustar nome da coluna do mês (corrigindo erro de codificação)
+    nome_coluna_mes = [col for col in colunas_disponiveis if "MA" in col.upper()]
     if not nome_coluna_mes:
         st.error("Nenhuma coluna de mês encontrada no dataset. Verifique o cabeçalho do CSV.")
         st.stop()
     nome_coluna_mes = nome_coluna_mes[0]  # Pegando a primeira correspondente
+    df_unificado.rename(columns={nome_coluna_mes: "Mês"}, inplace=True)
 
     # Ajustar nome da coluna de precipitação
     nome_coluna_precipitacao = [col for col in colunas_disponiveis if "PRECIPITACAO" in col.upper()]
@@ -34,7 +35,6 @@ try:
         st.stop()
     nome_coluna_precipitacao = nome_coluna_precipitacao[0]  # Pegando a primeira correspondente
 
-    df_unificado.rename(columns={nome_coluna_mes: "Mês"}, inplace=True)
     df_unificado['Regiao'] = df_unificado['Regiao'].astype(str).str.strip().str.upper()
 
     # Dicionário para mapear nomes completos das regiões
