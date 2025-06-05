@@ -16,23 +16,14 @@ try:
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
     # Calcular a média da temperatura se as colunas de max/min existirem
-    # Isso é importante para que 'Temperatura Média (°C)' esteja disponível
     if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
         df_unificado['Temperatura Média (°C)'] = (
             df_unificado['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
             df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
         ) / 2
-    # Caso a coluna 'Temperatura Média (°C)' já exista no CSV ou não seja selecionada,
-    # não precisamos calcular, mas verificamos se existe para evitar KeyError.
     elif 'Temperatura Média (°C)' not in df_unificado.columns:
-        # Se as colunas de max/min não estão lá e a coluna 'Temperatura Média (°C)'
-        # também não, e o usuário tenta selecionar "Temperatura Média (°C)", isso falharia.
-        # Por enquanto, vamos permitir que o Streamlit mostre o KeyError se acontecer.
-        # Uma tratativa mais robusta seria remover 'Temperatura Média (°C)' das opções
-        # de 'variaveis' se as colunas necessárias não existirem.
-        pass
-
+        pass 
 
     # Certificar-se de que a coluna 'Mês' é numérica
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
@@ -51,10 +42,9 @@ try:
     }
 
     # Seleção interativa da variável, com 'Radiação Global (Kj/m²)' como padrão
-    # Verifica se 'Radiação Global (Kj/m²)' está nas chaves de variaveis para definir o índice
     if 'Radiação Global (Kj/m²)' in variaveis:
         default_var_index = list(variaveis.keys()).index('Radiação Global (Kj/m²)')
-    else: # Se por algum motivo não tiver, pega o primeiro da lista
+    else:
         default_var_index = 0
 
     nome_var = st.selectbox("Selecione a variável para visualizar:", list(variaveis.keys()), index=default_var_index)
@@ -67,15 +57,14 @@ try:
     # Gráfico facetado por região
     st.subheader(f"Média Mensal de {nome_var} por Região (2020-2025)")
     
-    n_cols = 3 # Número de colunas no subplot
+    n_cols = 3
     n_rows = int(np.ceil(len(regioes) / n_cols))
     fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5*n_cols, 4*n_rows), sharey=True)
     
-    # Achata o array de eixos para facilitar a iteração se for 2D ou 1D com um único elemento
     if n_rows * n_cols > 1:
         axes = axes.flatten()
     elif len(regioes) == 1:
-        axes = [axes] # Garante que axes seja uma lista mesmo para uma única região
+        axes = [axes]
 
     for i, regiao in enumerate(regioes):
         ax = axes[i]
@@ -86,49 +75,87 @@ try:
                 ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
         ax.set_title(regiao)
         ax.set_xlabel('Mês')
-        if i % n_cols == 0: # Apenas para a primeira coluna de subplots
+        if i % n_cols == 0:
             ax.set_ylabel(nome_var)
         ax.set_xticks(meses)
         ax.grid(True)
 
-    # Remove subplots vazios, se houver
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
 
-    # Adicionar legenda fora dos subplots
     handles, labels = [], []
-    # Tenta pegar a legenda de um dos subplots que tenha linhas
     for ax_item in axes:
-        if ax_item and ax_item.lines: # Verifica se o eixo existe e tem linhas
+        if ax_item and ax_item.lines:
             handles, labels = ax_item.get_legend_handles_labels()
-            if handles: # Se encontrou, pode parar
+            if handles:
                 break
             
-    if handles and labels: # Apenas desenha a legenda se houver handles/labels
+    if handles and labels:
         fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.05, 1))
 
-    plt.tight_layout(rect=[0, 0, 0.95, 1]) # Ajusta o layout para a legenda não sobrepor
+    plt.tight_layout(rect=[0, 0, 0.95, 1])
     st.pyplot(fig)
 
-    # --- Análise de Radiação por Estação ---
+    # --- Análise de Extremos de Radiação ---
+    # Esta seção já está presente e funcional
     if nome_var == 'Radiação Global (Kj/m²)':
+        st.subheader("Análise dos Extremos de Radiação Global (2020-2025)")
+
+        if coluna_var in df_unificado.columns and not df_unificado[coluna_var].empty:
+            idx_max = df_unificado[coluna_var].idxmax()
+            max_rad_data = df_unificado.loc[idx_max]
+
+            idx_min = df_unificado[coluna_var].idxmin()
+            min_rad_data = df_unificado.loc[idx_min]
+
+            st.markdown(f"""
+            ### Maiores Valores de Radiação Global
+
+            O maior valor de Radiação Global registrado no período de 2020 a 2025 foi de **{max_rad_data[coluna_var]:.2f} Kj/m²**.
+            * **Região:** {max_rad_data['Regiao']}
+            * **Mês:** {max_rad_data['Mês']}
+            * **Ano:** {max_rad_data['Ano']}
+            """)
+
+            st.markdown(f"""
+            ### Menores Valores de Radiação Global
+
+            O menor valor de Radiação Global registrado no período de 2020 a 2025 foi de **{min_rad_data[coluna_var]:.2f} Kj/m²**.
+            * **Região:** {min_rad_data['Regiao']}
+            * **Mês:** {min_rad_data['Mês']}
+            * **Ano:** {min_rad_data['Ano']}
+            """)
+
+            st.markdown("""
+            ### Relevância dos Extremos de Radiação Global
+
+            A identificação de picos e vales na radiação global é crucial por diversas razões:
+
+            * **Geração de Energia Solar:** Períodos de alta radiação são ideais para a geração de energia fotovoltaica, indicando regiões e épocas do ano de maior potencial para projetos solares. Valores baixos, por outro lado, sinalizam menor eficiência.
+            * **Agricultura:** A radiação solar é vital para a fotossíntese. Picos de radiação, especialmente se combinados com temperaturas elevadas e baixa umidade, podem causar estresse térmico e hídrico nas plantas. Períodos de baixa radiação podem limitar o crescimento e a produtividade das culturas.
+            * **Clima e Qualidade do Ar:** A radiação afeta a temperatura do solo e do ar, influenciando a dinâmica atmosférica. Baixos níveis de radiação podem estar associados a maior nebulosidade ou poluição, enquanto altos níveis (especialmente em regiões urbanas) podem intensificar fenômenos como ilhas de calor e a formação de ozônio troposférico.
+            * **Recursos Hídricos:** Alta radiação contribui para a evaporação da água, impactando o nível de rios e reservatórios, especialmente em períodos de seca.
+
+            Esses dados fornecem insights valiosos para o planejamento energético, agrícola e ambiental, permitindo a otimização de recursos e a mitigação de riscos climáticos.
+            """)
+        else:
+            st.write("Dados de Radiação Global não disponíveis ou insuficientes para análise de extremos.")
+
+    # --- Análise da Radiação Global por Estação ---
+    # Esta seção também já está presente e funcional
+    if nome_var == 'Radiação Global (Kj/m²)': # Redundância para deixar claro que esta análise é específica para esta variável
         st.subheader("Análise da Radiação Global por Estação (2020-2025)")
 
-        # Define os meses de verão e inverno para o Brasil
-        # Verão: Dezembro (12), Janeiro (1), Fevereiro (2)
-        # Inverno: Junho (6), Julho (7), Agosto (8)
-        meses_verao = [12, 1, 2]
-        meses_inverno = [6, 7, 8]
+        meses_verao = [12, 1, 2] # Dezembro, Janeiro, Fevereiro
+        meses_inverno = [6, 7, 8] # Junho, Julho, Agosto
 
         dados_sazonais = []
         for regiao in regioes:
             df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
 
-            # Filtra e calcula a média para o verão
             df_verao = df_regiao[df_regiao['Mês'].isin(meses_verao)]
             media_verao = df_verao[coluna_var].mean()
 
-            # Filtra e calcula a média para o inverno
             df_inverno = df_regiao[df_regiao['Mês'].isin(meses_inverno)]
             media_inverno = df_inverno[coluna_var].mean()
 
