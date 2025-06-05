@@ -13,6 +13,16 @@ try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
+    # --- NOVO: Normaliza a coluna 'Regiao' ---
+    if 'Regiao' in df_unificado.columns:
+        df_unificado['Regiao'] = df_unificado['Regiao'].str.strip().str.upper()
+    else:
+        st.error("Erro: A coluna 'Regiao' não foi encontrada no arquivo CSV.")
+        st.stop() # Interrompe a execução para evitar mais erros
+
+    # Agora os nomes no DataFrame serão padronizados para MAIÚSCULAS e sem espaços extras.
+    # Você deve verificar se 'SUDESTE' e 'NORDESTE' são os nomes esperados após essa normalização.
+
     # Lista de anos e meses únicos
     anos = sorted(df_unificado['Ano'].unique())
     meses = sorted(df_unificado['Mês'].unique())
@@ -30,11 +40,13 @@ try:
     st.markdown("---")
     st.subheader(f"{nome_var} na Região Sudeste (2020-2025)")
     
-    df_sudeste = df_unificado[df_unificado['Regiao'] == 'Sudeste']
+    # Agora a filtragem usa 'SUDESTE' (tudo maiúsculo e sem espaços)
+    df_sudeste = df_unificado[df_unificado['Regiao'] == 'SUDESTE'] 
+    
     if df_sudeste.empty:
-        st.warning("Dados para a Região Sudeste não encontrados no arquivo CSV. Verifique o nome da região na coluna 'Regiao'.")
+        st.warning("Dados para a Região Sudeste não encontrados no arquivo CSV APÓS NORMALIZAÇÃO. Verifique o nome da região original no CSV.")
     else:
-        fig_sudeste, ax_sudeste = plt.subplots(figsize=(10, 6)) # Aumentei um pouco o tamanho do gráfico
+        fig_sudeste, ax_sudeste = plt.subplots(figsize=(10, 6))
         for ano in anos:
             df_ano_sudeste = df_sudeste[df_sudeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
             if not df_ano_sudeste.empty:
@@ -53,11 +65,13 @@ try:
     st.markdown("---")
     st.subheader(f"{nome_var} na Região Nordeste (2020-2025)")
     
-    df_nordeste = df_unificado[df_unificado['Regiao'] == 'Nordeste']
+    # Agora a filtragem usa 'NORDESTE' (tudo maiúsculo e sem espaços)
+    df_nordeste = df_unificado[df_unificado['Regiao'] == 'NORDESTE']
+    
     if df_nordeste.empty:
-        st.warning("Dados para a Região Nordeste não encontrados no arquivo CSV. Verifique o nome da região na coluna 'Regiao'.")
+        st.warning("Dados para a Região Nordeste não encontrados no arquivo CSV APÓS NORMALIZAÇÃO. Verifique o nome da região original no CSV.")
     else:
-        fig_nordeste, ax_nordeste = plt.subplots(figsize=(10, 6)) # Aumentei um pouco o tamanho do gráfico
+        fig_nordeste, ax_nordeste = plt.subplots(figsize=(10, 6))
         for ano in anos:
             df_ano_nordeste = df_nordeste[df_nordeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
             if not df_ano_nordeste.empty:
@@ -88,13 +102,13 @@ try:
     * **Primavera (Outubro a Novembro):** As temperaturas iniciam uma **ascensão gradual**, preparando para o verão.
 
     **Identificando Meses/Anos Atípicos no Sudeste (2020-2025):**
-    Para encontrar anomalias, observe as linhas individuais de cada ano. Se a linha de um ano estiver **significativamente acima** (mais quente) ou **abaixo** (mais fria) da média dos outros anos para um determinado mês, isso indica um evento atípico. Por exemplo, **Maio de 2025** pode mostrar temperaturas atipicamente baixas (linha de 2025 para maio **visivelmente abaixo** das outras) devido a fortes frentes frias, enquanto "veranicos" podem causar picos de calor em meses que deveriam ser mais amenos.
+    Para encontrar anomalias, observe as linhas individuais de cada ano. Se a linha de um ano estiver **significativamente acima** (mais quente) ou **abaixo** (mais fria) da média dos outros anos para um determinado mês, isso indica um evento atípico. Por exemplo, **Maio de 2025** pode mostrar temperaturas atipicamente baixas (linha de 2025 para maio **visivelmente abaixo** das outras), refletindo fortes frentes frias. "Veranicos" podem causar picos de calor em meses que deveriam ser mais amenos.
     """)
 
     st.markdown("#### **Região Nordeste: Temperaturas Elevadas e Estáveis**")
     st.write("""
     A Região Nordeste, devido à sua localização próxima ao Equador, demonstra um **padrão de temperatura mais elevado e estável ao longo do ano**, com menor variação sazonal do que o Sudeste. As "estações" são mais influenciadas pelo regime de chuvas do que pela temperatura.
-    * **Temperaturas Altas Constantes:** As linhas no gráfico permanecerão em **patamares consistentemente altos** na maioria dos meses, com uma amplitude térmica anual menor. O gráfico parecerá mais "achatado" em comparação ao do Sudeste.
+    * **Temperaturas Altas Constantes:** As linhas no gráfico permanecerão em **patamares consistentemente altos** na maioria dos meses, com pouca amplitude térmica anual. O gráfico parecerá mais "achatado" em comparação ao do Sudeste.
     * **Picos de Calor:** Embora a variação seja menor, os meses de **setembro a dezembro** (primavera/início do verão) tendem a apresentar os picos ligeiramente mais altos, especialmente nas áreas mais secas do interior.
 
     **Identificando Meses/Anos Atípicos no Nordeste (2020-2025):**
