@@ -97,13 +97,16 @@ try:
         df_media_mensal_B = df_grouped_B.mean(axis=1)
         df_desvio_mensal_B = df_grouped_B.std(axis=1)
 
+        # **Correção para garantir compatibilidade com JSON**
         anomalias_A = {
-            ano: ((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs()[((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs() > 2].index.tolist()
+            str(ano): [int(mes) for mes in ((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs()
+                      [((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs() > 2].index.tolist()]
             for ano in anos if ano in df_grouped_A.columns
         }
 
         anomalias_B = {
-            ano: ((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs()[((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs() > 2].index.tolist()
+            str(ano): [int(mes) for mes in ((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs()
+                      [((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs() > 2].index.tolist()]
             for ano in anos if ano in df_grouped_B.columns
         }
 
