@@ -6,7 +6,7 @@ import os
 # Caminho para o arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
-st.title("Comparação Sazonal de Temperatura - Regiões do Brasil (2020-2025)")
+st.title("Comparação Sazonal de Precipitação - Regiões do Brasil (2020-2025)")
 
 try:
     # Ler o arquivo unificado
@@ -53,9 +53,9 @@ try:
     if df_regiao_A.empty or df_regiao_B.empty:
         st.warning("Dados não encontrados para uma ou ambas as regiões selecionadas. Verifique os nomes das regiões no CSV.")
     else:
-        # Agrupar por mês e calcular média de temperatura
-        df_grouped_A = df_regiao_A.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
-        df_grouped_B = df_regiao_B.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
+        # Agrupar por mês e calcular média de precipitação
+        df_grouped_A = df_regiao_A.groupby(['Ano', 'Mês'])['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().unstack(level=0)
+        df_grouped_B = df_regiao_B.groupby(['Ano', 'Mês'])['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().unstack(level=0)
 
         # Cores para os anos
         from matplotlib.cm import get_cmap
@@ -63,7 +63,7 @@ try:
         cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
         # Gerar gráficos para comparação das regiões selecionadas
-        st.subheader(f"Padrões Sazonais - {regiao_A} vs {regiao_B} (2020-2025)")
+        st.subheader(f"Padrões Sazonais de Precipitação - {regiao_A} vs {regiao_B} (2020-2025)")
         
         fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=True)
 
@@ -73,14 +73,14 @@ try:
             if ano in df_grouped_B.columns:
                 axs[1].plot(meses, df_grouped_B[ano].reindex(meses).values, marker='s', linestyle='--', color=cores_anos[ano], label=str(ano))
 
-        axs[0].set_title(f"Temperatura Média Mensal - {regiao_A}")
-        axs[0].set_ylabel("Temperatura Média (°C)")
+        axs[0].set_title(f"Precipitação Mensal Média - {regiao_A}")
+        axs[0].set_ylabel("Precipitação (mm)")
         axs[0].grid(True)
         axs[0].legend(title="Ano")
 
-        axs[1].set_title(f"Temperatura Média Mensal - {regiao_B}")
+        axs[1].set_title(f"Precipitação Mensal Média - {regiao_B}")
         axs[1].set_xlabel("Mês")
-        axs[1].set_ylabel("Temperatura Média (°C)")
+        axs[1].set_ylabel("Precipitação (mm)")
         axs[1].grid(True)
         axs[1].legend(title="Ano")
 
@@ -98,15 +98,17 @@ try:
         df_desvio_mensal_B = df_grouped_B.std(axis=1)
 
         # **Correção para garantir compatibilidade com JSON**
+        limiar_anomalia = 1.5  # Reduzindo o limite para detectar anomalias
+
         anomalias_A = {
             str(ano): [int(mes) for mes in ((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs()
-                      [((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs() > 2].index.tolist()]
+                      [((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs() > limiar_anomalia].index.tolist()]
             for ano in anos if ano in df_grouped_A.columns
         }
 
         anomalias_B = {
             str(ano): [int(mes) for mes in ((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs()
-                      [((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs() > 2].index.tolist()]
+                      [((df_grouped_B[ano] - df_media_mensal_B) / df_desvio_mensal_B).abs() > limiar_anomalia].index.tolist()]
             for ano in anos if ano in df_grouped_B.columns
         }
 
@@ -115,9 +117,9 @@ try:
 
         # **Resumo da Comparação**
         st.markdown("### Principais Diferenças:")
-        st.write(f"✅ **{regiao_A}:** Possui padrões de temperatura com estações bem definidas? Apresenta grandes variações ao longo dos meses?")
-        st.write(f"✅ **{regiao_B}:** Mantém temperaturas mais constantes? Apresenta períodos de anomalias climáticas?")
-        st.write("👀 Compare os gráficos acima e veja como as tendências de temperatura mudam entre as regiões ao longo dos anos.")
+        st.write(f"✅ **{regiao_A}:** Apresenta um regime de chuvas bem definido ao longo dos meses? Existem picos ou períodos de seca?")
+        st.write(f"✅ **{regiao_B}:** A precipitação é mais constante ou possui períodos de alta instabilidade?")
+        st.write("👀 Compare os gráficos acima e veja como os padrões de chuva diferem entre as regiões.")
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
