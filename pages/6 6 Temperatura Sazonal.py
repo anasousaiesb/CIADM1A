@@ -8,16 +8,28 @@ caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_medi
 
 st.title("Padrões Sazonais de Temperatura (2020-2025) - Identificação de Meses/Anos Atípicos")
 
+# Dicionário para mapear abreviações das regiões
+mapa_regioes = {
+    "CO": "Centro-Oeste",
+    "NE": "Nordeste",
+    "N": "Norte",
+    "S": "Sul",
+    "SE": "Sudeste"
+}
+
 try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
-    # Lista de regiões disponíveis
-    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    # Aplicar o mapeamento de regiões
+    df_unificado['Regiao'] = df_unificado['Regiao'].map(mapa_regioes)
 
-    # Regiões carregadas por padrão
-    regiao_a = st.selectbox("Região A (Padrão: Sul)", regioes_disponiveis, index=regioes_disponiveis.index("Sul"))
-    regiao_b = st.selectbox("Região B (Padrão: Norte)", regioes_disponiveis, index=regioes_disponiveis.index("Norte"))
+    # Lista de regiões disponíveis
+    regioes_disponiveis = sorted(df_unificado['Regiao'].dropna().unique())
+
+    # Definir as regiões padrão, garantindo que estão na lista
+    regiao_a = st.selectbox("Região A (Padrão: Sul)", regioes_disponiveis, index=0 if "Sul" not in regioes_disponiveis else regioes_disponiveis.index("Sul"))
+    regiao_b = st.selectbox("Região B (Padrão: Norte)", regioes_disponiveis, index=1 if "Norte" not in regioes_disponiveis else regioes_disponiveis.index("Norte"))
 
     # Variável a ser analisada
     coluna_temp = 'Temp_Media'
