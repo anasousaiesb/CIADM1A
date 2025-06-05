@@ -32,6 +32,13 @@ try:
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
     df_unificado.dropna(subset=['Mês'], inplace=True)
 
+    # Verificar se a coluna de precipitação existe no dataset
+    colunas_disponiveis = df_unificado.columns.tolist()
+    nome_coluna_precipitacao = "PRECIPITAÇÃO TOTAL, HORÁRIO (mm)"
+    if nome_coluna_precipitacao not in colunas_disponiveis:
+        st.error(f"A coluna '{nome_coluna_precipitacao}' não foi encontrada no dataset. Verifique o cabeçalho do CSV.")
+        st.stop()
+
     # Definir anos e meses únicos
     meses = sorted(df_unificado['Mês'].unique())
     anos = sorted(df_unificado['Ano'].unique())
@@ -54,8 +61,8 @@ try:
         st.warning("Dados não encontrados para uma ou ambas as regiões selecionadas. Verifique os nomes das regiões no CSV.")
     else:
         # Agrupar por mês e calcular média de precipitação
-        df_grouped_A = df_regiao_A.groupby(['Ano', 'Mês'])['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().unstack(level=0)
-        df_grouped_B = df_regiao_B.groupby(['Ano', 'Mês'])['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().unstack(level=0)
+        df_grouped_A = df_regiao_A.groupby(['Ano', 'Mês'])[nome_coluna_precipitacao].mean().unstack(level=0)
+        df_grouped_B = df_regiao_B.groupby(['Ano', 'Mês'])[nome_coluna_precipitacao].mean().unstack(level=0)
 
         # Cores para os anos
         from matplotlib.cm import get_cmap
@@ -98,7 +105,7 @@ try:
         df_desvio_mensal_B = df_grouped_B.std(axis=1)
 
         # **Correção para garantir compatibilidade com JSON**
-        limiar_anomalia = 1.5  # Reduzindo o limite para detectar anomalias
+        limiar_anomalia = 1.2  # Reduzindo o limite para detectar anomalias menores
 
         anomalias_A = {
             str(ano): [int(mes) for mes in ((df_grouped_A[ano] - df_media_mensal_A) / df_desvio_mensal_A).abs()
