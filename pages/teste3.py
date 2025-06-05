@@ -71,15 +71,36 @@ def main():
     with col_alunos_intro:
         with st.expander("📌 Introdução", expanded=True):
             st.markdown("""
-            Este projeto apresenta uma análise climática baseada no dataset do INMET (2020-2025), investigando padrões sazonais, extremos climáticos e tendências futuras. Utilizando séries temporais, mapas de calor e modelos preditivos, buscamos fornecer insights sobre temperatura, precipitação e radiação global no Brasil.
+            ### **Análise Climática no Brasil com Dados do INMET (2020-2025)**  
+            
+            A análise climática é fundamental para compreender padrões sazonais e tendências meteorológicas que impactam setores como agricultura, energia e planejamento ambiental. Utilizando dados do INMET, este estudo busca extrair insights valiosos sobre a temperatura, precipitação e radiação global no Brasil.
 
-            Os tópicos abordados incluem:
-            - **Distribuição da Temperatura Máxima Média**
-            - **Comparação de Temperaturas entre Regiões**
-            - **Tendências Climáticas**
-            - **Impacto Setorial**
-            - **Padrões Sazonais Extremos**
-            - **Previsões Futuras**
+            **2️⃣ Objetivo da Pesquisa**  
+            Explorar a variabilidade climática entre 2020 e 2025, identificando padrões sazonais, extremos climáticos e tendências futuras para auxiliar na tomada de decisões estratégicas.
+
+            **3️⃣ Metodologia**  
+            - **Séries temporais** para identificar tendências e variações sazonais.  
+            - **Mapas de calor** para visualizar padrões geográficos de temperatura e precipitação.  
+            - **Gráficos de dispersão e boxplots** para avaliar extremos climáticos e relações entre variáveis.  
+            - **Modelos preditivos** para estimar tendências futuras.  
+
+            **4️⃣ Questões-Chave e Análises**  
+            A pesquisa será estruturada em 12 tópicos principais:
+            - 📍 **Distribuição da Temperatura Máxima Média em 2021**
+            - 📊 **Comparação Sul x Nordeste em 2021**
+            - 🌍 **Tendências de Temperatura e Precipitação (2020-2025)**
+            - 📅 **Variação entre Anos (2020-2024)**
+            - ☀️ **Radiação Global por Estação**
+            - 🌱 **Impacto Climático em Setores Estratégicos**
+            - ⚠️ **Padrões Extremos de Temperatura e Precipitação**
+            - 🔮 **Previsões Climáticas Futuras**
+            - ☁️ **Padrões Sazonais de Temperatura por Região**
+            - 🌧️ **Comparação de Chuva entre Regiões Norte e Sul**
+            - 🔆 **Extremos de Radiação Global**
+            - 📉 **Qualidade dos Dados e Correlações Climáticas**
+
+            **5️⃣ Discussão e Conclusões**  
+            Os resultados serão interpretados para fornecer recomendações estratégicas e insights sobre impactos ambientais e setoriais. A confiabilidade dos dados e potenciais melhorias futuras também serão abordadas.
 
             <div class="highlight-box">
                 <p><strong>💡 Dica:</strong> Navegue pelo menu lateral para explorar cada análise detalhadamente.</p>
