@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 import os
-import numpy as np
+import numpy as np # Necessário para np.full e np.abs
 
 # Caminho relativo ao arquivo CSV dentro do projeto
 # Ajuste este caminho conforme a localização do seu arquivo medias_mensais_geo_temp_media_completo.csv
@@ -15,6 +15,7 @@ try:
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
     # --- CALCULA A TEMPERATURA MÉDIA SE AS COLUNAS DE MAX/MIN EXISTIREM ---
+    # Isso resolve o erro se 'Temp_Media' não estiver direto
     if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
         df_unificado['Temp_Media'] = (
@@ -22,13 +23,14 @@ try:
             df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
         ) / 2
     elif 'Temp_Media' not in df_unificado.columns:
+        # Se não tem max/min E não tem Temp_Media, levanta erro
         st.error("Erro: O arquivo CSV não contém a coluna 'Temp_Media' nem as colunas 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para calcular a temperatura média.")
-        st.stop()
+        st.stop() # Para a execução do script
     # --- FIM DO CÁLCULO DA TEMPERATURA MÉDIA ---
 
     # Certificar-se de que a coluna 'Mês' é numérica
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
-    df_unificado = df_unificado.dropna(subset=['Mês'])
+    df_unificado = df_unificado.dropna(subset=['Mês']) # Remover linhas com Mês inválido
 
     # Lista de regiões e anos únicas
     regioes = sorted(df_unificado['Regiao'].unique())
@@ -192,7 +194,7 @@ try:
     media_mensal_sul = df_sul_prec.groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().reindex(meses)
 
     # --- ADIÇÃO PARA DEBUGGING: Exibir os dados da precipitação ---
-    st.markdown("### Dados de Precipitação para Depuração:")
+    st.markdown("### Dados de Precipitação para Depuração (Norte vs. Sul):")
     st.write("Média Mensal de Precipitação - Região Norte:")
     st.dataframe(media_mensal_norte)
     st.write("Média Mensal de Precipitação - Região Sul:")
@@ -273,7 +275,7 @@ try:
     media_mensal_nordeste = df_nordeste_temp.groupby('Mês')['Temp_Media'].mean().reindex(meses)
 
     # --- ADIÇÃO PARA DEBUGGING: Exibir os dados da temperatura ---
-    st.markdown("### Dados de Temperatura para Depuração:")
+    st.markdown("### Dados de Temperatura para Depuração (Sudeste vs. Nordeste):")
     st.write("Média Mensal de Temperatura - Região Sudeste:")
     st.dataframe(media_mensal_sudeste)
     st.write("Média Mensal de Temperatura - Região Nordeste:")
