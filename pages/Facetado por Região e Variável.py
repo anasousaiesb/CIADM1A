@@ -16,6 +16,22 @@ try:
     df_unificado.rename(columns={'MÃªs': 'Mês'}, inplace=True)
     df_unificado['Regiao'] = df_unificado['Regiao'].astype(str).str.strip().str.upper()
 
+    # Dicionário para mapear nomes completos das regiões
+    regioes = {
+        "CO": "Centro-Oeste",
+        "N": "Norte",
+        "NE": "Nordeste",
+        "S": "Sul",
+        "SE": "Sudeste"
+    }
+
+    # Aplicar mapeamento de nomes completos
+    df_unificado['Regiao_Completa'] = df_unificado['Regiao'].map(regioes)
+
+    # Verificar se todas as regiões foram corretamente mapeadas
+    st.write("Valores únicos na coluna 'Regiao':", df_unificado['Regiao'].unique())
+    st.write("Valores únicos após mapeamento:", df_unificado['Regiao_Completa'].unique())
+
     # Certificar que 'Mês' é numérico
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
     df_unificado.dropna(subset=['Mês'], inplace=True)
@@ -25,11 +41,11 @@ try:
     anos = sorted(df_unificado['Ano'].unique())
 
     # Seleção interativa da região
-    regioes = sorted(df_unificado['Regiao'].unique())
-    regiao_selecionada = st.selectbox("Selecione a região:", regioes)
+    regioes_disponiveis = sorted(df_unificado['Regiao_Completa'].dropna().unique())
+    regiao_selecionada = st.selectbox("Selecione a região:", regioes_disponiveis)
 
-    # Filtragem dos dados para a região
-    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
+    # Filtragem dos dados para a região selecionada
+    df_regiao = df_unificado[df_unificado['Regiao_Completa'] == regiao_selecionada]
 
     if df_regiao.empty:
         st.warning(f"Dados para a região {regiao_selecionada} não encontrados.")
