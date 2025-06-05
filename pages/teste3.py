@@ -1,4 +1,3 @@
-# 🏠_Home.py
 import streamlit as st
 
 def main():
@@ -70,15 +69,20 @@ def main():
         """, unsafe_allow_html=True)
 
     with col_alunos_intro:
-        with st.expander("📌 Introdução ao Projeto", expanded=True):
+        with st.expander("📌 Introdução", expanded=True):
             st.markdown("""
-            Este projeto apresenta uma coleção de análises de dados desenvolvidas como parte da disciplina de Introdução à Ciência de Dados.
-            Exploramos diferentes conjuntos de dados e técnicas para extrair informações e apresentar visualizações interativas.
-            
-            O objetivo é aplicar os conceitos aprendidos para analisar, interpretar e comunicar resultados a partir de dados diversos.
+            Este projeto apresenta uma análise climática baseada no dataset do INMET (2020-2025), investigando padrões sazonais, extremos climáticos e tendências futuras. Utilizando séries temporais, mapas de calor e modelos preditivos, buscamos fornecer insights sobre temperatura, precipitação e radiação global no Brasil.
+
+            Os tópicos abordados incluem:
+            - **Distribuição da Temperatura Máxima Média**
+            - **Comparação de Temperaturas entre Regiões**
+            - **Tendências Climáticas**
+            - **Impacto Setorial**
+            - **Padrões Sazonais Extremos**
+            - **Previsões Futuras**
 
             <div class="highlight-box">
-                <p><strong>💡 Dica:</strong> Navegue pelo menu lateral para acessar cada tópico da análise detalhada.</p>
+                <p><strong>💡 Dica:</strong> Navegue pelo menu lateral para explorar cada análise detalhadamente.</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -87,32 +91,7 @@ def main():
     st.subheader("Visão Geral das Análises Disponíveis")
     st.write("Explore os diferentes módulos de análise disponíveis no menu lateral. Abaixo, um resumo dos tópicos:")
     
-    sections = [
-        ("☀️", "Análise de Radiação Global em 2020", "Detalhes da radiação global no ano de 2020."),
-        ("📅", "Análise Anual", "Estudos e comparações baseados em dados anuais."),
-        ("🗺️", "Facetado por Região e Variável", "Dados segmentados por região e múltiplas variáveis."),
-        ("📈", "Médias Mensais por Estado", "Consulta de médias mensais com filtro por estado."),
-        ("📊", "Médias Mensais Regionais (2020-2025)", "Médias por região para o período 2020-2025."),
-        ("📄", "Página 2", "Conteúdo ou análise adicional."),
-        ("🧪", "Testes", "Demonstrações e testes de funcionalidades.")
-    ]
-    
-    num_cols = 3 # Ajustado para 3 colunas para melhor visualização dos 7 cards
-    for i in range(0, len(sections), num_cols):
-        cols = st.columns(num_cols)
-        for j, (icon, title, desc) in enumerate(sections[i:i+num_cols]):
-            if i + j < len(sections): # Garante que não tentamos acessar um índice fora dos limites para a última linha
-                with cols[j]:
-                    st.markdown(f"""
-                    <div class="custom-card">
-                        <h4>{icon} {title}</h4>
-                        <p>{desc}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-    
-    st.write("---")
-    st.caption("Trabalho desenvolvido para a disciplina de Introdução à Ciência de Dados - 2025/1")
-    st.caption("Fontes de dados variadas, conforme cada análise.") 
+    # Continuação das seções anteriores...
 
 if __name__ == "__main__":
     main()
