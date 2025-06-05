@@ -8,7 +8,7 @@ import numpy as np
 # Ajuste este caminho conforme a localização do seu arquivo medias_mensais_geo_temp_media_completo.csv
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
-st.title("Médias Mensais Regionais (2020-2025) - Visualização por Região e Variável")
+st.title("Padrões Sazonais Extremos: Amplitude Térmica e Variação de Precipitação")
 
 try:
     # Ler o arquivo unificado
@@ -196,4 +196,3 @@ except KeyError as e:
     st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média (TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C) e TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)).")
 except Exception as e:
     st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
-
