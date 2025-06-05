@@ -1,118 +1,137 @@
-# 🏠_Home.py
-import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-def main():
-    # Configuração da página
-    st.set_page_config(
-        page_title="Análises de Dados - CIADM1A",
-        page_icon="📊",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # CSS incorporado para estilização mínima
-    st.markdown("""
-    <style>
-    .custom-card {
-        padding: 1.5rem;
-        border-radius: 10px;
-        background-color: #ffffff;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 1rem;
-        height: 160px; /* Altura fixa para melhor alinhamento dos cards */
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start; /* Alinha conteúdo no topo */
-    }
-    .custom-card h4 {
-        font-size: 1.1em; 
-        margin-bottom: 0.5rem; /* Espaço abaixo do título do card */
-    }
-    .custom-card p {
-        font-size: 0.9em; 
-        color:#555555; /* Cor de texto um pouco mais escura para melhor leitura */
-    }
-    .highlight-box {
-        background-color: #e3f2fd;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
-    }
-    .stApp [data-testid="stSidebar"] > div:first-child {
-        padding-top: 1rem; /* Adiciona um pouco de padding no topo da sidebar */
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Cabeçalho
-    st.title("Projeto de Análise de Dados")
-    st.subheader("CIADM1A-CIA001-20251")
-    
-    st.write("---")
-
-    # Seção de informações da equipe em colunas
-    col_prof, col_alunos_intro = st.columns([1, 2])
-
-    with col_prof:
-        st.subheader("Professor:")
-        st.markdown("""
-        <div class="custom-card" style="height: auto; justify-content: center; text-align: center;">
-            Alexandre Vaz Roriz
-        </div>
-        """, unsafe_allow_html=True)
+class AnaliseClimatica:
+    def __init__(self, dados):
+        """
+        Inicializa a classe com os dados climáticos
         
-        st.subheader("Alunos:")
-        st.markdown("""
-        <div class="custom-card" style="height: auto; justify-content: center; text-align: center;">
-            Ana Sophia<br>
-            Igor Andrade
-        </div>
-        """, unsafe_allow_html=True)
+        Args:
+            dados (DataFrame): DataFrame contendo os dados climáticos
+        """
+        self.dados = dados
+        
+    def analise_radiacao_global_2020(self):
+        """
+        1. Análise de Radiação Global em 2020
+        Gera gráficos e estatísticas da radiação global no ano de 2020
+        """
+        dados_2020 = self.dados[self.dados['ano'] == 2020]
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=dados_2020, x='mes', y='radiacao_global', hue='regiao')
+        plt.title('1. Análise de Radiação Global em 2020')
+        plt.xlabel('Mês')
+        plt.ylabel('Radiação Global (kWh/m²)')
+        plt.grid(True)
+        plt.show()
+        
+    def qualidade_dados_correlacoes(self):
+        """
+        2. Qualidade dos Dados e Correlações Climáticas
+        Analisa a qualidade dos dados e calcula correlações entre variáveis climáticas
+        """
+        print("2. Qualidade dos Dados:")
+        print(self.dados.isnull().sum())
+        
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(self.dados.corr(), annot=True, cmap='coolwarm')
+        plt.title('Correlações Climáticas')
+        plt.show()
+        
+    def padroes_sazonais_extremos(self):
+        """
+        3. Padrões Sazonais Extremos
+        Identifica padrões sazonais extremos nos dados climáticos
+        """
+        extremos = self.dados.groupby('estacao').agg({
+            'temperatura': ['max', 'min'],
+            'radiacao_global': 'max'
+        })
+        print("3. Padrões Sazonais Extremos:")
+        print(extremos)
+        
+    def radiacao_por_estacao(self):
+        """
+        4. Radiação Global por Estação
+        Compara os níveis de radiação global por estação do ano
+        """
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(data=self.dados, x='estacao', y='radiacao_global')
+        plt.title('4. Radiação Global por Estação')
+        plt.xlabel('Estação do Ano')
+        plt.ylabel('Radiação Global (kWh/m²)')
+        plt.show()
+        
+    def comparacao_chuva_regioes(self):
+        """
+        5. Comparação de Chuva entre Regiões Norte e Sul
+        Compara os padrões de chuva entre as regiões norte e sul
+        """
+        norte = self.dados[self.dados['regiao'] == 'Norte']
+        sul = self.dados[self.dados['regiao'] == 'Sul']
+        
+        plt.figure(figsize=(12, 6))
+        plt.subplot(1, 2, 1)
+        sns.histplot(norte['precipitacao'], kde=True)
+        plt.title('Precipitação - Região Norte')
+        
+        plt.subplot(1, 2, 2)
+        sns.histplot(sul['precipitacao'], kde=True)
+        plt.title('Precipitação - Região Sul')
+        
+        plt.suptitle('5. Comparação de Chuva entre Regiões Norte e Sul')
+        plt.tight_layout()
+        plt.show()
+        
+    def temperatura_sazonal(self):
+        """
+        6. Temperatura Sazonal
+        Analisa a variação sazonal da temperatura
+        """
+        plt.figure(figsize=(10, 6))
+        sns.lineplot(data=self.dados, x='mes', y='temperatura', hue='estacao', 
+                    style='estacao', markers=True)
+        plt.title('6. Temperatura Sazonal')
+        plt.xlabel('Mês')
+        plt.ylabel('Temperatura (°C)')
+        plt.grid(True)
+        plt.show()
+        
+    def extremos_radiacao(self):
+        """
+        7. Extremos de Radiação
+        Identifica e analisa os extremos de radiação global
+        """
+        max_rad = self.dados.nlargest(5, 'radiacao_global')
+        min_rad = self.dados.nsmallest(5, 'radiacao_global')
+        
+        print("7. Extremos de Radiação:")
+        print("Maiores valores de radiação:")
+        print(max_rad[['data', 'regiao', 'radiacao_global']])
+        print("\nMenores valores de radiação:")
+        print(min_rad[['data', 'regiao', 'radiacao_global']])
 
-    with col_alunos_intro:
-        with st.expander("📌 Introdução ao Projeto", expanded=True):
-            st.markdown("""
-            Este projeto apresenta uma coleção de análises de dados desenvolvidas como parte da disciplina de Introdução à Ciência de Dados.
-            Exploramos diferentes conjuntos de dados e técnicas para extrair informações e apresentar visualizações interativas.
-            
-            O objetivo é aplicar os conceitos aprendidos para analisar, interpretar e comunicar resultados a partir de dados diversos.
-
-            <div class="highlight-box">
-                <p><strong>💡 Dica:</strong> Navegue pelo menu lateral para acessar cada tópico da análise detalhada.</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.write("---")
-    
-    st.subheader("Visão Geral das Análises Disponíveis")
-    st.write("Explore os diferentes módulos de análise disponíveis no menu lateral. Abaixo, um resumo dos tópicos:")
-    
-    sections = [
-        ("☀️", "Análise de Radiação Global em 2020", "Detalhes da radiação global no ano de 2020."),
-        ("📅", "Análise Anual", "Estudos e comparações baseados em dados anuais."),
-        ("🗺️", "Facetado por Região e Variável", "Dados segmentados por região e múltiplas variáveis."),
-        ("📈", "Médias Mensais por Estado", "Consulta de médias mensais com filtro por estado."),
-        ("📊", "Médias Mensais Regionais (2020-2025)", "Médias por região para o período 2020-2025."),
-        ("📄", "Página 2", "Conteúdo ou análise adicional."),
-        ("🧪", "Testes", "Demonstrações e testes de funcionalidades.")
-    ]
-    
-    num_cols = 3 # Ajustado para 3 colunas para melhor visualização dos 7 cards
-    for i in range(0, len(sections), num_cols):
-        cols = st.columns(num_cols)
-        for j, (icon, title, desc) in enumerate(sections[i:i+num_cols]):
-            if i + j < len(sections): # Garante que não tentamos acessar um índice fora dos limites para a última linha
-                with cols[j]:
-                    st.markdown(f"""
-                    <div class="custom-card">
-                        <h4>{icon} {title}</h4>
-                        <p>{desc}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-    
-    st.write("---")
-    st.caption("Trabalho desenvolvido para a disciplina de Introdução à Ciência de Dados - 2025/1")
-    st.caption("Fontes de dados variadas, conforme cada análise.") 
-
+# Exemplo de uso
 if __name__ == "__main__":
-    main()
+    # Carregar dados (exemplo)
+    dados = pd.read_csv('dados_climaticos.csv')
+    
+    # Converter data se necessário
+    dados['data'] = pd.to_datetime(dados['data'])
+    dados['ano'] = dados['data'].dt.year
+    dados['mes'] = dados['data'].dt.month
+    dados['estacao'] = dados['data'].dt.month.apply(lambda x: 
+        'Verão' if x in [12, 1, 2] else
+        'Outono' if x in [3, 4, 5] else
+        'Inverno' if x in [6, 7, 8] else 'Primavera')
+    
+    # Criar e executar análises
+    analise = AnaliseClimatica(dados)
+    analise.analise_radiacao_global_2020()
+    analise.qualidade_dados_correlacoes()
+    analise.padroes_sazonais_extremos()
+    analise.radiacao_por_estacao()
+    analise.comparacao_chuva_regioes()
+    analise.temperatura_sazonal()
+    analise.extremos_radiacao()
