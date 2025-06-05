@@ -13,7 +13,7 @@ try:
     df_unificado = pd.read_csv(caminho_arquivo_unificado, encoding='latin1')
 
     # Correção de nomes de colunas se necessário
-    df_unificado.rename(columns={'MÃªs': 'Mês'}, inplace=True)
+    df_unificado.rename(columns={'Mes': 'Mês'}, inplace=True)
     df_unificado['Regiao'] = df_unificado['Regiao'].astype(str).str.strip().str.upper()
 
     # Dicionário para mapear nomes completos das regiões
@@ -40,12 +40,14 @@ try:
     colunas_disponiveis = df_unificado.columns.tolist()
     st.write("Colunas disponíveis no dataset:", colunas_disponiveis)
 
-    # Definir o nome correto da coluna de precipitação
-    nome_coluna_precipitacao = "PRECIPITACAO TOTAL, HORARIO (mm)"
-
-    if nome_coluna_precipitacao not in colunas_disponiveis:
-        st.error(f"A coluna '{nome_coluna_precipitacao}' não foi encontrada no dataset. Verifique o cabeçalho do CSV.")
+    # Ajustando o nome correto da coluna de precipitação
+    nome_coluna_precipitacao = [col for col in colunas_disponiveis if "PRECIPITACAO" in col.upper()]
+    
+    if not nome_coluna_precipitacao:
+        st.error("Nenhuma coluna de precipitação encontrada no dataset. Verifique o cabeçalho do CSV.")
         st.stop()
+    
+    nome_coluna_precipitacao = nome_coluna_precipitacao[0]  # Pegando a primeira correspondente
 
     # Definir anos e meses únicos
     meses = sorted(df_unificado['Mês'].unique())
