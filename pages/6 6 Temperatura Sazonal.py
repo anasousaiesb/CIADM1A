@@ -6,7 +6,7 @@ import os
 # Caminho para o arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
-st.title("Análise Sazonal de Temperatura - Regiões do Brasil (2020-2025)")
+st.title("Análise Comparativa de Temperatura - Regiões do Brasil (2020-2025)")
 
 try:
     # Ler o arquivo unificado
@@ -27,10 +27,6 @@ try:
 
     # Aplicar mapeamento de nomes completos e tratar valores não mapeados
     df_unificado['Regiao_Completa'] = df_unificado['Regiao'].map(regioes)
-    
-    # Exibir valores únicos para depuração
-    st.write("Valores únicos na coluna 'Regiao':", df_unificado['Regiao'].unique())
-    st.write("Valores únicos após mapeamento:", df_unificado['Regiao_Completa'].dropna().unique())
 
     # Certificar que 'Mês' é numérico
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
@@ -40,71 +36,103 @@ try:
     meses = sorted(df_unificado['Mês'].unique())
     anos = sorted(df_unificado['Ano'].unique())
 
-    # Seleção interativa da região
+    # Seleção interativa das regiões
     regioes_disponiveis = sorted(df_unificado['Regiao_Completa'].dropna().unique())
-    if not regioes_disponiveis:
-        st.error("Nenhuma região válida encontrada no dataset. Verifique o formato dos dados.")
+
+    if len(regioes_disponiveis) < 2:
+        st.error("É necessário pelo menos duas regiões válidas no dataset. Verifique o formato dos dados.")
         st.stop()
 
-    regiao_selecionada = st.selectbox("Selecione a região:", regioes_disponiveis)
+    regiao1_selecionada = st.selectbox("Selecione a primeira região:", regioes_disponiveis)
+    regiao2_selecionada = st.selectbox("Selecione a segunda região:", regioes_disponiveis)
 
-    # Filtragem dos dados para a região selecionada
-    df_regiao = df_unificado[df_unificado['Regiao_Completa'] == regiao_selecionada]
+    # Filtragem dos dados para cada região selecionada
+    df_regiao1 = df_unificado[df_unificado['Regiao_Completa'] == regiao1_selecionada]
+    df_regiao2 = df_unificado[df_unificado['Regiao_Completa'] == regiao2_selecionada]
 
-    if df_regiao.empty:
-        st.warning(f"Dados para a região {regiao_selecionada} não encontrados. Verifique os nomes das regiões no CSV.")
+    if df_regiao1.empty or df_regiao2.empty:
+        st.warning("Dados não encontrados para uma ou ambas as regiões selecionadas. Verifique os nomes das regiões no CSV.")
     else:
         # Agrupar por mês e calcular média de temperatura
-        df_grouped = df_regiao.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
+        df_grouped1 = df_regiao1.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
+        df_grouped2 = df_regiao2.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
 
         # Cores para os anos
         from matplotlib.cm import get_cmap
         cmap = get_cmap('viridis')
         cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
-        # Gráfico de temperatura sazonal
-        st.subheader(f"Padrões Sazonais de Temperatura - {regiao_selecionada} (2020-2025)")
-        fig, ax = plt.subplots(figsize=(10, 6))
+        # Gerar gráficos para comparação das regiões selecionadas
+        st.subheader(f"Padrões Sazonais - {regiao1_selecionada} vs {regiao2_selecionada} (2020-2025)")
         
+        fig, axs = plt.subplots(2, 1, figsize=(10, 12), sharex=True)
+
         for ano in anos:
-            if ano in df_grouped.columns:
-                ax.plot(meses, df_grouped[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-        
-        ax.set_title(f"Temperatura Média Mensal - {regiao_selecionada} (2020-2025)")
-        ax.set_xlabel("Mês")
-        ax.set_ylabel("Temperatura Média (°C)")
-        ax.set_xticks(meses)
-        ax.grid(True)
-        ax.legend(title="Ano")
+            if ano in df_grouped1.columns:
+                axs[0].plot(meses, df_grouped1[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
+            if ano in df_grouped2.columns:
+                axs[1].plot(meses, df_grouped2[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
+
+        axs[0].set_title(f"Temperatura Média Mensal - {regiao1_selecionada}")
+        axs[0].set_ylabel("Temperatura Média (°C)")
+        axs[0].grid(True)
+        axs[0].legend(title="Ano")
+
+        axs[1].set_title(f"Temperatura Média Mensal - {regiao2_selecionada}")
+        axs[1].set_xlabel("Mês")
+        axs[1].set_ylabel("Temperatura Média (°C)")
+        axs[1].grid(True)
+        axs[1].legend(title="Ano")
+
         plt.tight_layout()
         st.pyplot(fig)
 
-        # Identificação de meses/anos atípicos
+        # **Comparação Sudeste vs Nordeste**
         st.markdown("---")
-        st.subheader("Identificação de Anomalias de Temperatura")
-        
-        # Calcular média e desvio padrão para cada mês
-        df_media_mensal = df_grouped.mean(axis=1)
-        df_desvio_mensal = df_grouped.std(axis=1)
+        st.subheader("Análise Comparativa: Sudeste vs Nordeste (2020-2025)")
 
-        # Destacar meses e anos que desviam muito da média
-        anomalias = {}
-        for ano in anos:
-            if ano in df_grouped.columns:
-                desvios = ((df_grouped[ano] - df_media_mensal) / df_desvio_mensal).abs()
-                anomalias[ano] = desvios[desvios > 2].index.tolist()  # Considerando desvios acima de 2 sigmas
+        df_sudeste = df_unificado[df_unificado['Regiao_Completa'] == "Sudeste"]
+        df_nordeste = df_unificado[df_unificado['Regiao_Completa'] == "Nordeste"]
 
-        if any(anomalias.values()):
-            st.write(f"Os seguintes meses apresentaram temperaturas atípicas na região {regiao_selecionada}:")
-            for ano, meses_atipicos in anomalias.items():
-                if meses_atipicos:
-                    st.write(f"- **{ano}**: {', '.join(map(str, meses_atipicos))}")
+        if df_sudeste.empty or df_nordeste.empty:
+            st.warning("Dados insuficientes para a comparação entre Sudeste e Nordeste.")
         else:
-            st.write("Nenhuma anomalia significativa identificada.")
+            df_grouped_sudeste = df_sudeste.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
+            df_grouped_nordeste = df_nordeste.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
+
+            fig_comp, ax_comp = plt.subplots(figsize=(10, 6))
+            
+            for ano in anos:
+                if ano in df_grouped_sudeste.columns:
+                    ax_comp.plot(meses, df_grouped_sudeste[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=f"Sudeste {ano}")
+                if ano in df_grouped_nordeste.columns:
+                    ax_comp.plot(meses, df_grouped_nordeste[ano].reindex(meses).values, marker='s', linestyle='--', color=cores_anos[ano], label=f"Nordeste {ano}")
+
+            ax_comp.set_title("Comparação de Temperatura - Sudeste vs Nordeste")
+            ax_comp.set_xlabel("Mês")
+            ax_comp.set_ylabel("Temperatura Média (°C)")
+            ax_comp.grid(True)
+            ax_comp.legend(title="Região e Ano")
+            plt.tight_layout()
+            st.pyplot(fig_comp)
+
+            # **Identificação de meses/anos atípicos**
+            st.subheader("Identificação de Anomalias de Temperatura")
+            
+            df_media_mensal_sudeste = df_grouped_sudeste.mean(axis=1)
+            df_desvio_mensal_sudeste = df_grouped_sudeste.std(axis=1)
+
+            df_media_mensal_nordeste = df_grouped_nordeste.mean(axis=1)
+            df_desvio_mensal_nordeste = df_grouped_nordeste.std(axis=1)
+
+            anomalias_sudeste = {ano: ((df_grouped_sudeste[ano] - df_media_mensal_sudeste) / df_desvio_mensal_sudeste).abs()[((df_grouped_sudeste[ano] - df_media_mensal_sudeste) / df_desvio_mensal_sudeste).abs() > 2].index.tolist() for ano in anos if ano in df_grouped_sudeste.columns}
+            
+            anomalias_nordeste = {ano: ((df_grouped_nordeste[ano] - df_media_mensal_nordeste) / df_desvio_mensal_nordeste).abs()[((df_grouped_nordeste[ano] - df_media_mensal_nordeste) / df_desvio_mensal_nordeste).abs() > 2].index.tolist() for ano in anos if ano in df_grouped_nordeste.columns}
+
+            st.write("Sudeste - Meses atípicos:", anomalias_sudeste)
+            st.write("Nordeste - Meses atípicos:", anomalias_nordeste)
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
-except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV.")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    st.error(f"Ocorreu um erro: {e}")
