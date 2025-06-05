@@ -9,7 +9,8 @@ import numpy as np
 # esteja no subdiretório 'medias' em relação ao script Python.
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-st.title("Médias Mensais Regionais (2020-2025) - Facetado por Região e Variável")
+# --- ALTERAÇÃO AQUI: Novo título principal do aplicativo ---
+st.title("Radiação Global por Estação (2020-2025)")
 
 try:
     # Ler o arquivo unificado
@@ -55,7 +56,7 @@ try:
     cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
     # Gráfico facetado por região
-    st.subheader(f"Média Mensal de {nome_var} por Região (2020-2025)")
+    st.subheader(f"Média Mensal de {nome_var} por Região (2020-2025)") # Subtítulo do gráfico principal
     
     n_cols = 3
     n_rows = int(np.ceil(len(regioes) / n_cols))
@@ -97,9 +98,8 @@ try:
     st.pyplot(fig)
 
     # --- Análise de Extremos de Radiação ---
-    # Esta seção já está presente e funcional
     if nome_var == 'Radiação Global (Kj/m²)':
-        st.subheader("Análise dos Extremos de Radiação Global (2020-2025)")
+        st.subheader("Análise dos Extremos de Radiação Global (2020-2025)") # Subtítulo da seção de extremos
 
         if coluna_var in df_unificado.columns and not df_unificado[coluna_var].empty:
             idx_max = df_unificado[coluna_var].idxmax()
@@ -131,52 +131,4 @@ try:
 
             A identificação de picos e vales na radiação global é crucial por diversas razões:
 
-            * **Geração de Energia Solar:** Períodos de alta radiação são ideais para a geração de energia fotovoltaica, indicando regiões e épocas do ano de maior potencial para projetos solares. Valores baixos, por outro lado, sinalizam menor eficiência.
-            * **Agricultura:** A radiação solar é vital para a fotossíntese. Picos de radiação, especialmente se combinados com temperaturas elevadas e baixa umidade, podem causar estresse térmico e hídrico nas plantas. Períodos de baixa radiação podem limitar o crescimento e a produtividade das culturas.
-            * **Clima e Qualidade do Ar:** A radiação afeta a temperatura do solo e do ar, influenciando a dinâmica atmosférica. Baixos níveis de radiação podem estar associados a maior nebulosidade ou poluição, enquanto altos níveis (especialmente em regiões urbanas) podem intensificar fenômenos como ilhas de calor e a formação de ozônio troposférico.
-            * **Recursos Hídricos:** Alta radiação contribui para a evaporação da água, impactando o nível de rios e reservatórios, especialmente em períodos de seca.
-
-            Esses dados fornecem insights valiosos para o planejamento energético, agrícola e ambiental, permitindo a otimização de recursos e a mitigação de riscos climáticos.
-            """)
-        else:
-            st.write("Dados de Radiação Global não disponíveis ou insuficientes para análise de extremos.")
-
-    # --- Análise da Radiação Global por Estação ---
-    # Esta seção também já está presente e funcional
-    if nome_var == 'Radiação Global (Kj/m²)': # Redundância para deixar claro que esta análise é específica para esta variável
-        st.subheader("Análise da Radiação Global por Estação (2020-2025)")
-
-        meses_verao = [12, 1, 2] # Dezembro, Janeiro, Fevereiro
-        meses_inverno = [6, 7, 8] # Junho, Julho, Agosto
-
-        dados_sazonais = []
-        for regiao in regioes:
-            df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
-
-            df_verao = df_regiao[df_regiao['Mês'].isin(meses_verao)]
-            media_verao = df_verao[coluna_var].mean()
-
-            df_inverno = df_regiao[df_regiao['Mês'].isin(meses_inverno)]
-            media_inverno = df_inverno[coluna_var].mean()
-
-            dados_sazonais.append({'Região': regiao, 'Radiação Média Verão (Kj/m²)': media_verao, 'Radiação Média Inverno (Kj/m²)': media_inverno})
-
-        df_sazonais = pd.DataFrame(dados_sazonais)
-        st.dataframe(df_sazonais.round(2))
-
-        st.markdown("""
-        **Como isso se relaciona com a geografia de cada região:**
-
-        * **Latitude:** Regiões mais próximas do Equador (como Norte e Nordeste) tendem a receber maior radiação solar ao longo do ano, com menor variação sazonal, pois o ângulo de incidência dos raios solares é mais direto e constante. Regiões mais afastadas do Equador (como Sul) apresentam maior variação entre as estações, com radiação menor no inverno e maior no verão.
-        * **Nebulosidade/Precipitação:** A presença de nuvens e o regime de chuvas influenciam diretamente a radiação global. Regiões com maior nebulosidade ou períodos chuvosos mais intensos (como o Norte no verão) podem ter radiação global média menor, mesmo estando em baixas latitudes. Inversamente, regiões com estações secas bem definidas (como o Centro-Oeste no inverno) podem apresentar alta radiação global devido ao céu claro.
-        * **Topografia e Elevação:** Embora não seja explicitamente visível nesses dados agregados, a topografia local e a elevação também podem influenciar a radiação solar recebida.
-
-        A tabela acima permite observar diretamente essas variações e como elas se alinham com o conhecimento geográfico e climático do Brasil.
-        """)
-
-except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e o nome do arquivo.")
-except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média.")
-except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+            * **Geração de Energia Solar:** Períodos de alta radiação são ideais para a geração de energia fotovoltaica, indicando regiões e épocas do ano de
