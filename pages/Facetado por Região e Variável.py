@@ -25,12 +25,12 @@ try:
         "SE": "Sudeste"
     }
 
-    # Aplicar mapeamento de nomes completos
+    # Aplicar mapeamento de nomes completos e tratar valores não mapeados
     df_unificado['Regiao_Completa'] = df_unificado['Regiao'].map(regioes)
-
-    # Verificar se todas as regiões foram corretamente mapeadas
+    
+    # Exibir valores únicos para depuração
     st.write("Valores únicos na coluna 'Regiao':", df_unificado['Regiao'].unique())
-    st.write("Valores únicos após mapeamento:", df_unificado['Regiao_Completa'].unique())
+    st.write("Valores únicos após mapeamento:", df_unificado['Regiao_Completa'].dropna().unique())
 
     # Certificar que 'Mês' é numérico
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
@@ -42,13 +42,17 @@ try:
 
     # Seleção interativa da região
     regioes_disponiveis = sorted(df_unificado['Regiao_Completa'].dropna().unique())
+    if not regioes_disponiveis:
+        st.error("Nenhuma região válida encontrada no dataset. Verifique o formato dos dados.")
+        st.stop()
+
     regiao_selecionada = st.selectbox("Selecione a região:", regioes_disponiveis)
 
     # Filtragem dos dados para a região selecionada
     df_regiao = df_unificado[df_unificado['Regiao_Completa'] == regiao_selecionada]
 
     if df_regiao.empty:
-        st.warning(f"Dados para a região {regiao_selecionada} não encontrados.")
+        st.warning(f"Dados para a região {regiao_selecionada} não encontrados. Verifique os nomes das regiões no CSV.")
     else:
         # Agrupar por mês e calcular média de temperatura
         df_grouped = df_regiao.groupby(['Ano', 'Mês'])['Temp_Media'].mean().unstack(level=0)
