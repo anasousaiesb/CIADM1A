@@ -12,14 +12,12 @@ try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
-    # Lista de regiões e anos únicas
+    # Lista de regiões disponíveis
     regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
 
-    # Sempre carregar as regiões Sul e Norte
-    regioes_padrao = ['Sul', 'Norte']
-
-    # Adicionar opção para escolha de outra região
-    regiao_selecionada = st.selectbox("Selecione uma região adicional para análise:", regioes_disponiveis)
+    # Regiões carregadas por padrão
+    regiao_a = st.selectbox("Região A (Padrão: Sul)", regioes_disponiveis, index=regioes_disponiveis.index("Sul"))
+    regiao_b = st.selectbox("Região B (Padrão: Norte)", regioes_disponiveis, index=regioes_disponiveis.index("Norte"))
 
     # Variável a ser analisada
     coluna_temp = 'Temp_Media'
@@ -28,12 +26,12 @@ try:
     from matplotlib.cm import get_cmap
     cmap = get_cmap('coolwarm')
     anos = sorted(df_unificado['Ano'].unique())
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)]
+    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
     # Criando gráficos separados para cada região
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 6), sharey=True)
 
-    for i, regiao in enumerate(regioes_padrao + [regiao_selecionada]):
+    for i, regiao in enumerate([regiao_a, regiao_b]):
         df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
         medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
 
