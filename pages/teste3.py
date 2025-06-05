@@ -75,31 +75,32 @@ def main():
             
             A análise climática é fundamental para compreender padrões sazonais e tendências meteorológicas que impactam setores como agricultura, energia e planejamento ambiental. Utilizando dados do INMET, este estudo busca extrair insights valiosos sobre a temperatura, precipitação e radiação global no Brasil.
 
-            **2️⃣ Objetivo da Pesquisa**  
+            **Objetivo da Pesquisa**  
             Explorar a variabilidade climática entre 2020 e 2025, identificando padrões sazonais, extremos climáticos e tendências futuras para auxiliar na tomada de decisões estratégicas.
 
-            **3️⃣ Metodologia**  
+            **Metodologia**  
             - **Séries temporais** para identificar tendências e variações sazonais.  
             - **Mapas de calor** para visualizar padrões geográficos de temperatura e precipitação.  
             - **Gráficos de dispersão e boxplots** para avaliar extremos climáticos e relações entre variáveis.  
             - **Modelos preditivos** para estimar tendências futuras.  
 
-            **4️⃣ Questões-Chave e Análises**  
+            **Questões-Chave e Análises**  
             A pesquisa será estruturada em 12 tópicos principais:
-            - 📍 **Distribuição da Temperatura Máxima Média em 2021**
-            - 📊 **Comparação Sul x Nordeste em 2021**
-            - 🌍 **Tendências de Temperatura e Precipitação (2020-2025)**
-            - 📅 **Variação entre Anos (2020-2024)**
-            - ☀️ **Radiação Global por Estação**
-            - 🌱 **Impacto Climático em Setores Estratégicos**
-            - ⚠️ **Padrões Extremos de Temperatura e Precipitação**
-            - 🔮 **Previsões Climáticas Futuras**
-            - ☁️ **Padrões Sazonais de Temperatura por Região**
-            - 🌧️ **Comparação de Chuva entre Regiões Norte e Sul**
-            - 🔆 **Extremos de Radiação Global**
-            - 📉 **Qualidade dos Dados e Correlações Climáticas**
 
-            **5️⃣ Discussão e Conclusões**  
+            1️⃣ **Qual região do Brasil manteve as temperaturas máximas médias mais elevadas durante a maior parte do ano de 2021? E qual região registrou as temperaturas máximas médias mais baixas, especialmente nos meses de inverno (junho, julho e agosto)?**  
+            2️⃣ **Observando a linha da Região Sul (S), em que mês de 2021 ela atingiu sua temperatura máxima média mais baixa? Compare essa temperatura com a temperatura máxima média da Região Nordeste (NE) no mesmo mês.**  
+            3️⃣ **Tendências de Curto Prazo: Há tendências de aumento/diminuição de temperatura ou precipitação (2020-2025) em alguma região? O que as explica?**  
+            4️⃣ **Diferenças entre Anos: Compare padrões de temperatura e precipitação entre 2020 e 2024 em uma região específica. Isso sugere eventos climáticos ou alta variabilidade?**  
+            5️⃣ **Radiação por Estação: Como a radiação global varia entre regiões no verão e inverno? Como isso se relaciona com a geografia de cada região?**  
+            6️⃣ **Impacto em Setores: Quais regiões seriam mais favoráveis para agricultura de sequeiro e para energia solar, baseando-se nos dados de temperatura, precipitação e radiação?**  
+            7️⃣ **Padrões Sazonais Extremos: Identifique a região com maior amplitude térmica e maior variação de precipitação mensal (2020-2025). Como esses extremos aparecem nos gráficos?**  
+            8️⃣ **Previsões Futuras (Insights Preliminares): Que hipóteses sobre o clima futuro das regiões brasileiras podem ser formuladas com base nesses dados de curto prazo (2020-2025)?**  
+            9️⃣ **Temperatura Sazonal: Descreva os padrões sazonais de temperatura na Região Sudeste e Nordeste (2020-2025) e identifique meses/anos atípicos.**  
+            🔟 **Comparação de Chuva: Compare os regimes de precipitação (volumes, picos/secas) entre as Regiões Norte e Sul (2020-2025) e justifique as diferenças.**  
+            1️⃣1️⃣ **Extremos de Radiação: Identifique regiões e meses com maiores/menores valores de Radiação Global (2020-2025) e sua relevância.**  
+            1️⃣2️⃣ **Variabilidade Anual: Escolha uma variável e região e analise qual ano (2020-2025) se destaca por valores atipicamente altos/baixos, discutindo as implicações.**  
+
+            **Discussão e Conclusões**  
             Os resultados serão interpretados para fornecer recomendações estratégicas e insights sobre impactos ambientais e setoriais. A confiabilidade dos dados e potenciais melhorias futuras também serão abordadas.
 
             <div class="highlight-box">
