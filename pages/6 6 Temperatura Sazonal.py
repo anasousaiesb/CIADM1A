@@ -191,7 +191,17 @@ try:
     media_mensal_norte = df_norte_prec.groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().reindex(meses)
     media_mensal_sul = df_sul_prec.groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean().reindex(meses)
 
-    if not media_mensal_norte.empty and not media_mensal_sul.empty:
+    # --- ADIÇÃO PARA DEBUGGING: Exibir os dados da precipitação ---
+    st.markdown("### Dados de Precipitação para Depuração:")
+    st.write("Média Mensal de Precipitação - Região Norte:")
+    st.dataframe(media_mensal_norte)
+    st.write("Média Mensal de Precipitação - Região Sul:")
+    st.dataframe(media_mensal_sul)
+    # --- FIM DA ADIÇÃO PARA DEBUGGING ---
+
+    # Verifica se há dados válidos para plotar
+    if not media_mensal_norte.empty and not media_mensal_norte.isnull().all() and \
+       not media_mensal_sul.empty and not media_mensal_sul.isnull().all():
         fig_comp_prec, ax_comp_prec = plt.subplots(figsize=(12, 7))
         ax_comp_prec.plot(meses, media_mensal_norte.values, marker='o', linestyle='-', color='blue', label='Região Norte')
         ax_comp_prec.plot(meses, media_mensal_sul.values, marker='o', linestyle='-', color='green', label='Região Sul')
@@ -244,11 +254,14 @@ try:
             "distribuição e intensidade da precipitação em cada região."
         )
     else:
-        st.write("Dados de precipitação insuficientes para as regiões Norte ou Sul para realizar a comparação.")
+        st.warning("Não foi possível gerar o gráfico de comparação de precipitação para as regiões Norte e Sul. Isso pode ocorrer porque:")
+        st.warning("- O arquivo CSV pode não conter dados para uma ou ambas as regiões ('Norte' ou 'Sul').")
+        st.warning("- A coluna 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' pode não ter dados válidos (apenas valores vazios ou não numéricos) para essas regiões no período de 2020-2025.")
+        st.warning("Por favor, verifique o seu arquivo CSV e as informações de depuração acima para mais detalhes.")
 
     st.write("---") # Separador visual
 
-    # --- NOVO CÁLCULO: TEMPERATURA SAZONAL SUDESTE VS NORDESTE ---
+    # --- TEMPERATURA SAZONAL SUDESTE VS NORDESTE ---
     st.subheader("Padrões Sazonais de Temperatura: Região Sudeste vs. Região Nordeste (2020-2025)")
 
     # Filtra dados para as regiões Sudeste e Nordeste
@@ -259,7 +272,17 @@ try:
     media_mensal_sudeste = df_sudeste_temp.groupby('Mês')['Temp_Media'].mean().reindex(meses)
     media_mensal_nordeste = df_nordeste_temp.groupby('Mês')['Temp_Media'].mean().reindex(meses)
 
-    if not media_mensal_sudeste.empty and not media_mensal_nordeste.empty:
+    # --- ADIÇÃO PARA DEBUGGING: Exibir os dados da temperatura ---
+    st.markdown("### Dados de Temperatura para Depuração:")
+    st.write("Média Mensal de Temperatura - Região Sudeste:")
+    st.dataframe(media_mensal_sudeste)
+    st.write("Média Mensal de Temperatura - Região Nordeste:")
+    st.dataframe(media_mensal_nordeste)
+    # --- FIM DA ADIÇÃO PARA DEBUGGING ---
+
+    # Verifica se há dados válidos para plotar
+    if not media_mensal_sudeste.empty and not media_mensal_sudeste.isnull().all() and \
+       not media_mensal_nordeste.empty and not media_mensal_nordeste.isnull().all():
         fig_comp_temp, ax_comp_temp = plt.subplots(figsize=(12, 7))
         ax_comp_temp.plot(meses, media_mensal_sudeste.values, marker='o', linestyle='-', color='purple', label='Região Sudeste')
         ax_comp_temp.plot(meses, media_mensal_nordeste.values, marker='o', linestyle='-', color='orange', label='Região Nordeste')
@@ -298,7 +321,10 @@ try:
             "\n- **Eventos Anômalos (El Niño/La Niña):** Meses e anos atípicos podem ser justificados pela atuação de fenómenos de grande escala, como El Niño (que geralmente causa secas e temperaturas mais altas no Norte e Nordeste e chuvas irregulares no Sul) e La Niña (que pode intensificar chuvas no Norte e Nordeste e causar secas no Sul). Ondas de calor ou de frio intensas também podem gerar atipicidades localizadas."
         )
     else:
-        st.write("Dados de temperatura insuficientes para as regiões Sudeste ou Nordeste para realizar a comparação.")
+        st.warning("Não foi possível gerar o gráfico de comparação de temperatura para as regiões Sudeste e Nordeste. Isso pode ocorrer porque:")
+        st.warning("- O arquivo CSV pode não conter dados para uma ou ambas as regiões ('Sudeste' ou 'Nordeste').")
+        st.warning("- A coluna 'Temp_Media' pode não ter dados válidos (apenas valores vazios ou não numéricos) para essas regiões no período de 2020-2025.")
+        st.warning("Por favor, verifique o seu arquivo CSV e as informações de depuração acima para mais detalhes.")
 
 
 except FileNotFoundError:
