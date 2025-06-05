@@ -13,23 +13,37 @@ try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
-    # --- NOVO: Normaliza a coluna 'Regiao' ---
+    # --- CORREÇÃO 1: Normaliza a coluna 'Regiao' e RENOMEIA 'MÊS' e a coluna de TEMPERATURA ---
     if 'Regiao' in df_unificado.columns:
         df_unificado['Regiao'] = df_unificado['Regiao'].str.strip().str.upper()
     else:
-        st.error("Erro: A coluna 'Regiao' não foi encontrada no arquivo CSV.")
+        st.error("Erro: A coluna 'Regiao' não foi encontrada no arquivo CSV. Verifique o cabeçalho do CSV.")
         st.stop() # Interrompe a execução para evitar mais erros
+    
+    # CORREÇÃO 2: Renomear a coluna 'MÊS' para 'Mês' (sem acento, padrão do seu código)
+    if 'MÊS' in df_unificado.columns:
+        df_unificado.rename(columns={'MÊS': 'Mês'}, inplace=True)
+    else:
+        st.error("Erro: A coluna 'MÊS' (com acento) não foi encontrada no arquivo CSV. Verifique o cabeçalho do CSV.")
+        st.stop()
 
-    # Agora os nomes no DataFrame serão padronizados para MAIÚSCULAS e sem espaços extras.
-    # Você deve verificar se 'SUDESTE' e 'NORDESTE' são os nomes esperados após essa normalização.
+    # CORREÇÃO 3: Renomear a coluna de temperatura para 'Temp_Media'
+    # Use o nome EXATO da coluna de temperatura máxima do seu CSV.
+    # Se você tiver uma coluna de temperatura mínima e quiser a média real, precisaria de mais lógica aqui.
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
+        df_unificado.rename(columns={'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temp_Media'}, inplace=True)
+    else:
+        st.error("Erro: A coluna 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' não foi encontrada. Confirme o nome exato da coluna de temperatura no seu CSV.")
+        st.stop()
 
-    # Lista de anos e meses únicos
+    # Lista de anos e meses únicos (agora 'Mês' sem acento)
     anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique())
+    # O 'Mês' no CSV provavelmente é um número de 1 a 12. Sorted é útil aqui.
+    meses = sorted(df_unificado['Mês'].unique()) 
 
     # Variável a ser analisada (fixa para a pergunta específica: Temperatura Média)
     nome_var = 'Temperatura Média (°C)'
-    coluna_var = 'Temp_Media'
+    coluna_var = 'Temp_Media' # Agora esta coluna deve existir após o rename
 
     # Cores para os anos
     from matplotlib.cm import get_cmap
@@ -40,13 +54,14 @@ try:
     st.markdown("---")
     st.subheader(f"{nome_var} na Região Sudeste (2020-2025)")
     
-    # Agora a filtragem usa 'SUDESTE' (tudo maiúsculo e sem espaços)
+    # A filtragem agora usa 'SUDESTE' (tudo maiúsculo e sem espaços)
     df_sudeste = df_unificado[df_unificado['Regiao'] == 'SUDESTE'] 
     
     if df_sudeste.empty:
-        st.warning("Dados para a Região Sudeste não encontrados no arquivo CSV APÓS NORMALIZAÇÃO. Verifique o nome da região original no CSV.")
+        st.warning("Dados para a Região Sudeste não encontrados no arquivo CSV. Verifique o nome EXATO da região na coluna 'Regiao' após a normalização (e.g., 'SUDESTE').")
     else:
         fig_sudeste, ax_sudeste = plt.subplots(figsize=(10, 6))
+        # Agrupa por 'Mês' (agora sem acento) e usa 'coluna_var' (agora 'Temp_Media')
         for ano in anos:
             df_ano_sudeste = df_sudeste[df_sudeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
             if not df_ano_sudeste.empty:
@@ -65,13 +80,14 @@ try:
     st.markdown("---")
     st.subheader(f"{nome_var} na Região Nordeste (2020-2025)")
     
-    # Agora a filtragem usa 'NORDESTE' (tudo maiúsculo e sem espaços)
+    # A filtragem agora usa 'NORDESTE' (tudo maiúsculo e sem espaços)
     df_nordeste = df_unificado[df_unificado['Regiao'] == 'NORDESTE']
     
     if df_nordeste.empty:
-        st.warning("Dados para a Região Nordeste não encontrados no arquivo CSV APÓS NORMALIZAÇÃO. Verifique o nome da região original no CSV.")
+        st.warning("Dados para a Região Nordeste não encontrados no arquivo CSV. Verifique o nome EXATO da região na coluna 'Regiao' após a normalização (e.g., 'NORDESTE').")
     else:
         fig_nordeste, ax_nordeste = plt.subplots(figsize=(10, 6))
+        # Agrupa por 'Mês' (agora sem acento) e usa 'coluna_var' (agora 'Temp_Media')
         for ano in anos:
             df_ano_nordeste = df_nordeste[df_nordeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
             if not df_ano_nordeste.empty:
@@ -124,6 +140,6 @@ try:
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Certifique-se de que ele está no diretório 'medias' dentro do projeto.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se os nomes das colunas no CSV estão corretos e correspondem a 'Regiao', 'Ano', 'Mês', e 'Temp_Media'.")
+    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se os nomes das colunas no CSV estão corretos.")
 except Exception as e:
     st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
