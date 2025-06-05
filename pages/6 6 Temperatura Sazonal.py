@@ -10,35 +10,50 @@ st.title("Análise Comparativa de Temperaturas Médias Mensais (2020-2025)")
 st.subheader("Regiões Sudeste e Nordeste")
 
 try:
-    # Ler o arquivo unificado com codificação específica
+    # Ler o arquivo unificado com codificação específica (muitas vezes resolve problemas com acentos)
     # 'latin1' é frequentemente bom para arquivos com caracteres especiais em português
     df_unificado = pd.read_csv(caminho_arquivo_unificado, encoding='latin1')
     
-    # --- Verificações e Normalizações (simplificadas com as colunas corretas) ---
+    # --- DEBUG: Imprimir colunas para verificar nomes exatos que o Pandas leu ---
+    st.write("---")
+    st.write("Colunas encontradas no CSV (para depuração):", df_unificado.columns.tolist())
+    st.write("---")
+    # --- FIM DEBUG ---
 
-    # Normaliza a coluna 'Regiao' (remove espaços e padroniza para maiúsculas)
+    # --- Verificações e Normalizações de Colunas Essenciais ---
+
+    # Normaliza a coluna 'Regiao' (remove espaços extras e padroniza para maiúsculas)
     if 'Regiao' in df_unificado.columns:
-        df_unificado['Regiao'] = df_unificado['Regiao'].str.strip().str.upper()
+        df_unificado['Regiao'] = df_unificado['Regiao'].astype(str).str.strip().str.upper() # Adicionado .astype(str) para robustez
     else:
-        st.error("Erro: A coluna 'Regiao' não foi encontrada no arquivo CSV. Verifique o cabeçalho.")
+        st.error("Erro: A coluna 'Regiao' não foi encontrada no arquivo CSV. Verifique o cabeçalho do seu arquivo.")
         st.stop()
     
-    # Verifica se 'Mês' e 'Temp_Media' existem (não é necessário renomear, apenas confirmar)
+    # Verifica se 'Mês' existe (conforme a amostra)
     if 'Mês' not in df_unificado.columns:
-        st.error("Erro: A coluna 'Mês' não foi encontrada no arquivo CSV. Verifique o cabeçalho.")
+        st.error("Erro: A coluna 'Mês' não foi encontrada no arquivo CSV. Verifique o cabeçalho do seu arquivo. (Esperado 'Mês' sem acento).")
         st.stop()
 
+    # Verifica se 'Temp_Media' existe (conforme a amostra)
     if 'Temp_Media' not in df_unificado.columns:
-        st.error("Erro: A coluna 'Temp_Media' não foi encontrada no arquivo CSV. Verifique o cabeçalho.")
+        st.error("Erro: A coluna 'Temp_Media' não foi encontrada no arquivo CSV. Verifique o cabeçalho do seu arquivo.")
         st.stop()
     
+    # Verifica se 'Ano' existe
     if 'Ano' not in df_unificado.columns:
-        st.error("Erro: A coluna 'Ano' não foi encontrada no arquivo CSV. Verifique o cabeçalho.")
+        st.error("Erro: A coluna 'Ano' não foi encontrada no arquivo CSV. Verifique o cabeçalho do seu arquivo.")
         st.stop()
 
-    # Lista de anos e meses únicos (agora 'Mês' sem acento e 'Temp_Media' já existe)
-    anos = sorted(df_unificado['Ano'].unique())
+    # --- Fim das Verificações e Normalizações ---
+
+
+    # Lista de anos e meses únicos
+    # Certifica que 'Mês' é numérico para sorting
+    df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
+    df_unificado.dropna(subset=['Mês'], inplace=True) # Remove linhas com Mês inválido
     meses = sorted(df_unificado['Mês'].unique()) 
+    anos = sorted(df_unificado['Ano'].unique())
+
 
     # Variável a ser analisada (fixa para a pergunta específica: Temperatura Média)
     nome_var = 'Temperatura Média (°C)'
@@ -60,10 +75,12 @@ try:
         st.warning("Dados para a Região Sudeste não encontrados no arquivo CSV. Verifique o nome EXATO da região na coluna 'Regiao' após a normalização (e.g., 'SUDESTE').")
     else:
         fig_sudeste, ax_sudeste = plt.subplots(figsize=(10, 6))
+        # Agrupa por 'Mês' e usa 'coluna_var' ('Temp_Media')
+        df_ano_sudeste_grouped = df_sudeste.groupby(['Ano', 'Mês'])[coluna_var].mean().unstack(level=0)
+        
         for ano in anos:
-            df_ano_sudeste = df_sudeste[df_sudeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
-            if not df_ano_sudeste.empty:
-                ax_sudeste.plot(meses, df_ano_sudeste.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
+            if ano in df_ano_sudeste_grouped.columns:
+                ax_sudeste.plot(meses, df_ano_sudeste_grouped[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
         
         ax_sudeste.set_title(f'Média Mensal de {nome_var} - Sudeste (2020-2025)')
         ax_sudeste.set_xlabel('Mês')
@@ -85,10 +102,12 @@ try:
         st.warning("Dados para a Região Nordeste não encontrados no arquivo CSV. Verifique o nome EXATO da região na coluna 'Regiao' após a normalização (e.g., 'NORDESTE').")
     else:
         fig_nordeste, ax_nordeste = plt.subplots(figsize=(10, 6))
+        # Agrupa por 'Mês' e usa 'coluna_var' ('Temp_Media')
+        df_ano_nordeste_grouped = df_nordeste.groupby(['Ano', 'Mês'])[coluna_var].mean().unstack(level=0)
+
         for ano in anos:
-            df_ano_nordeste = df_nordeste[df_nordeste['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
-            if not df_ano_nordeste.empty:
-                ax_nordeste.plot(meses, df_ano_nordeste.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
+            if ano in df_ano_nordeste_grouped.columns:
+                ax_nordeste.plot(meses, df_ano_nordeste_grouped[ano].reindex(meses).values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
         
         ax_nordeste.set_title(f'Média Mensal de {nome_var} - Nordeste (2020-2025)')
         ax_nordeste.set_xlabel('Mês')
