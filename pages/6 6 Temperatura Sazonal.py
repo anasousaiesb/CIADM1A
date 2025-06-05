@@ -32,9 +32,17 @@ try:
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
     df_unificado.dropna(subset=['Mês'], inplace=True)
 
-    # Verificar se a coluna de precipitação existe no dataset
+    # Remover espaços extras e normalizar nomes de colunas
+    df_unificado.columns = df_unificado.columns.str.strip()
+    df_unificado.columns = df_unificado.columns.str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+
+    # Verificar colunas disponíveis
     colunas_disponiveis = df_unificado.columns.tolist()
-    nome_coluna_precipitacao = "PRECIPITAÇÃO TOTAL, HORÁRIO (mm)"
+    st.write("Colunas disponíveis no dataset:", colunas_disponiveis)
+
+    # Definir o nome correto da coluna de precipitação
+    nome_coluna_precipitacao = "PRECIPITACAO TOTAL, HORARIO (mm)"
+
     if nome_coluna_precipitacao not in colunas_disponiveis:
         st.error(f"A coluna '{nome_coluna_precipitacao}' não foi encontrada no dataset. Verifique o cabeçalho do CSV.")
         st.stop()
@@ -121,12 +129,6 @@ try:
 
         st.write(f"Meses atípicos em {regiao_A}:", anomalias_A)
         st.write(f"Meses atípicos em {regiao_B}:", anomalias_B)
-
-        # **Resumo da Comparação**
-        st.markdown("### Principais Diferenças:")
-        st.write(f"✅ **{regiao_A}:** Apresenta um regime de chuvas bem definido ao longo dos meses? Existem picos ou períodos de seca?")
-        st.write(f"✅ **{regiao_B}:** A precipitação é mais constante ou possui períodos de alta instabilidade?")
-        st.write("👀 Compare os gráficos acima e veja como os padrões de chuva diferem entre as regiões.")
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
