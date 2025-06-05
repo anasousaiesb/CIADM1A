@@ -14,13 +14,13 @@ try:
 
     # Lista de regiões e anos únicas
     regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
-    
+
     # Sempre carregar as regiões Sul e Norte
     regioes_padrao = ['Sul', 'Norte']
-    
+
     # Adicionar opção para escolha de outra região
     regiao_selecionada = st.selectbox("Selecione uma região adicional para análise:", regioes_disponiveis)
-    
+
     # Variável a ser analisada
     coluna_temp = 'Temp_Media'
 
@@ -28,36 +28,36 @@ try:
     from matplotlib.cm import get_cmap
     cmap = get_cmap('coolwarm')
     anos = sorted(df_unificado['Ano'].unique())
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
+    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    for regiao in regioes_padrao + [regiao_selecionada]:
+    # Criando gráficos separados para cada região
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 6), sharey=True)
+
+    for i, regiao in enumerate(regioes_padrao + [regiao_selecionada]):
         df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
         medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
-        
+
         # Identificação de meses/anos atípicos
         media_geral = medias_mensais[coluna_temp].mean()
         desvio_padrao = medias_mensais[coluna_temp].std()
         limite_superior = media_geral + 1.5 * desvio_padrao
         limite_inferior = media_geral - 1.5 * desvio_padrao
-        
+
         meses_atipicos = medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)]
-        
+
         for ano in anos:
             df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_temp].mean()
             if not df_ano_regiao.empty:
-                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=f'{regiao} - {ano}')
-    
-    ax.set_title("Padrões Sazonais de Temperatura (2020-2025)")
-    ax.set_xlabel("Mês")
-    ax.set_ylabel("Temperatura Média (°C)")
-    ax.set_xticks(range(1, 13))
-    ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
-    ax.grid(True)
-    ax.legend(title="Região - Ano")
+                axes[i].plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=f'{ano}')
+
+        axes[i].set_title(f"Temperatura Média - {regiao} (2020-2025)")
+        axes[i].set_xlabel("Mês")
+        axes[i].set_xticks(range(1, 13))
+        axes[i].set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+        axes[i].grid(True)
+        axes[i].legend(title="Ano")
+
     plt.tight_layout()
-    
     st.pyplot(fig)
 
     # Exibir os meses/anos atípicos
