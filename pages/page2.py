@@ -29,6 +29,10 @@ try:
         index=len(anos_disponiveis)-1 if 2023 not in anos_disponiveis else anos_disponiveis.index(2023)
     )
     
+    # Verificar anos disponíveis
+    st.sidebar.markdown("### Anos disponíveis no dataset:")
+    st.sidebar.write(anos_disponiveis)
+    
     # Dicionário de meses
     meses_nome = {
         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
@@ -161,6 +165,29 @@ try:
         ax2.grid(True, linestyle='--', alpha=0.7)
         plt.tight_layout()
         st.pyplot(fig2)
+
+        # --- EXPLICAÇÕES DOS GRÁFICOS ---
+        st.subheader("Explicações dos Gráficos")
+        
+        with st.expander("Gráfico de Comparação Regional"):
+            st.write(f"""
+            Este gráfico de barras compara a radiação solar média entre todas as regiões disponíveis para o mês de **{mes_selecionado_nome} de {ano_selecionado}**.
+            
+            - A região **{regiao_selecionada}** está destacada em coral para fácil identificação
+            - As barras estão ordenadas da maior para a menor radiação
+            - Os valores exatos são mostrados no topo de cada barra
+            - Este gráfico permite identificar como a região selecionada se compara com as demais no mesmo período
+            """)
+        
+        with st.expander("Gráfico de Evolução Mensal"):
+            st.write(f"""
+            Este gráfico de linha mostra a variação da radiação solar ao longo do ano **{ano_selecionado}** para a região **{regiao_selecionada}**.
+            
+            - Cada ponto representa a média mensal de radiação
+            - A linha vermelha tracejada marca o mês selecionado (**{mes_selecionado_nome}**)
+            - Permite visualizar padrões sazonais e identificar meses com maior ou menor radiação
+            - O valor exato de cada mês pode ser visto passando o mouse sobre os pontos (no modo interativo)
+            """)
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a estrutura de pastas.")
