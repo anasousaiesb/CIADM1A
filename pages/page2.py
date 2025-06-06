@@ -1,126 +1,174 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 import streamlit as st
 import os
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.cm import get_cmap
 
 # Caminho relativo ao arquivo CSV dentro do projeto
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-st.title("Padrões Sazonais de Temperatura (2020-2025) - Identificação de Meses/Anos Atípicos")
-
-# Dicionário para mapear abreviações das regiões
-mapa_regioes = {
-    "CO": "Centro-Oeste",
-    "NE": "Nordeste",
-    "N": "Norte",
-    "S": "Sul",
-    "SE": "Sudeste"
-}
+st.title("Análise de Radiação Global (2020-2025)")
 
 try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
-    # Aplicar o mapeamento de regiões
-    df_unificado['Regiao'] = df_unificado['Regiao'].map(mapa_regioes)
+    # Verificar se as colunas necessárias existem
+    colunas_necessarias = ['Ano', 'Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']
+    for coluna in colunas_necessarias:
+        if coluna not in df_unificado.columns:
+            raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV.")
 
-    # Lista de regiões disponíveis
-    regioes_disponiveis = sorted(df_unificado['Regiao'].dropna().unique())
+    # Sidebar para seleção de parâmetros
+    st.sidebar.header("Filtros de Análise")
+    
+    # Seleção de ano
+    anos_disponiveis = sorted(df_unificado['Ano'].unique())
+    ano_selecionado = st.sidebar.selectbox(
+        "Selecione o ano:",
+        anos_disponiveis,
+        index=0  # 2020 por padrão
+    )
+    
+    # Seleção de mês (com opção para todos os meses)
+    meses_disponiveis = ['Todos'] + list(range(1, 13))
+    mes_selecionado = st.sidebar.selectbox(
+        "Selecione o mês:",
+        meses_disponiveis,
+        index=0  # 'Todos' por padrão
+    )
+    
+    # Seleção de tipo de visualização
+    tipo_visualizacao = st.sidebar.radio(
+        "Tipo de visualização:",
+        ('Comparativo Regional', 'Evolução Temporal', 'Análise Detalhada')
+    )
 
-    # Definir as regiões padrão, garantindo que estão na lista
-    regiao_a = st.selectbox("Região A (Padrão: Sul)", regioes_disponiveis, index=0 if "Sul" not in regioes_disponiveis else regioes_disponiveis.index("Sul"))
-    regiao_b = st.selectbox("Região B (Padrão: Norte)", regioes_disponiveis, index=1 if "Norte" not in regioes_disponiveis else regioes_disponiveis.index("Norte"))
+    # Filtrar dados conforme seleção
+    df_filtrado = df_unificado[df_unificado['Ano'] == ano_selecionado]
+    
+    if mes_selecionado != 'Todos':
+        df_filtrado = df_filtrado[df_filtrado['Mês'] == mes_selecionado]
 
-    # Variável a ser analisada
-    coluna_temp = 'Temp_Media'
-
-    # Cores para os anos
-    from matplotlib.cm import get_cmap
-    cmap = get_cmap('coolwarm')
-    anos = sorted(df_unificado['Ano'].unique())
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
-
-    # Criando gráficos separados para cada região
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 6), sharey=True)
-
-    # Dicionário para armazenar informações para a análise dinâmica
-    analise_regioes = {regiao_a: {}, regiao_b: {}}
-
-    for i, regiao in enumerate([regiao_a, regiao_b]):
-        df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
-        medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
-
-        # Cálculos para análise dinâmica
-        media_geral = medias_mensais[coluna_temp].mean()
-        desvio_padrao = medias_mensais[coluna_temp].std()
-        limite_superior = media_geral + 1.5 * desvio_padrao
-        limite_inferior = media_geral - 1.5 * desvio_padrao
+    if df_filtrado.empty:
+        st.warning(f"Não foram encontrados dados para o ano {ano_selecionado} e mês {mes_selecionado}.")
+    else:
+        # --- VISUALIZAÇÃO 1: COMPARATIVO REGIONAL ---
+        if tipo_visualizacao == 'Comparativo Regional':
+            st.subheader(f"Comparativo de Radiação Global por Região - {ano_selecionado}")
+            
+            if mes_selecionado == 'Todos':
+                # Calcular média anual por região
+                df_media = df_filtrado.groupby('Regiao')['RADIACAO GLOBAL (Kj/m²)'].mean().sort_values(ascending=False)
+                titulo_grafico = f'Média Anual de Radiação Global por Região - {ano_selecionado}'
+            else:
+                # Mostrar dados do mês específico
+                df_media = df_filtrado.groupby('Regiao')['RADIACAO GLOBAL (Kj/m²)'].mean().sort_values(ascending=False)
+                titulo_grafico = f'Média de Radiação Global por Região - Mês {mes_selecionado}/{ano_selecionado}'
+            
+            # Encontrar a região com maior radiação
+            regiao_maior = df_media.idxmax()
+            valor_maior = df_media.max()
+            
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            cores = ['skyblue'] * len(df_media)
+            if regiao_maior in df_media.index:
+                indice_regiao = df_media.index.get_loc(regiao_maior)
+                cores[indice_regiao] = 'coral'
+            
+            bars = ax.bar(df_media.index, df_media.values, color=cores)
+            
+            ax.set_xlabel('Região')
+            ax.set_ylabel('Radiação Global (Kj/m²)')
+            ax.set_title(titulo_grafico)
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+            
+            # Adicionar valores nas barras
+            for bar in bars:
+                yval = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*valor_maior, 
+                        f'{yval:.2f}', ha='center', va='bottom')
+            
+            st.pyplot(fig)
+            
+            # Análise textual dinâmica
+            st.markdown(f"""
+            **Análise:**
+            - A região com maior radiação global em {'todos os meses' if mes_selecionado == 'Todos' else f'mês {mes_selecionado}'} de {ano_selecionado} foi **{regiao_maior}**, com média de **{valor_maior:.2f} Kj/m²**.
+            - A variação entre regiões foi de **{(df_media.max() - df_media.min()):.2f} Kj/m²**, indicando {'grandes' if (df_media.max() - df_media.min()) > 500 else 'moderadas'} diferenças regionais.
+            """)
         
-        # Armazenar métricas para análise
-        analise_regioes[regiao]['media'] = round(media_geral, 1)
-        analise_regioes[regiao]['amplitude'] = round(medias_mensais[coluna_temp].max() - medias_mensais[coluna_temp].min(), 1)
-        analise_regioes[regiao]['mes_mais_quente'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmax(), 'Mês']
-        analise_regioes[regiao]['mes_mais_frio'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmin(), 'Mês']
-        analise_regioes[regiao]['num_atipicos'] = len(medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | 
-                                                                  (medias_mensais[coluna_temp] < limite_inferior)])
-
-        meses_atipicos = medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | 
-                                      (medias_mensais[coluna_temp] < limite_inferior)]
-
-        for ano in anos:
-            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_temp].mean()
-            if not df_ano_regiao.empty:
-                axes[i].plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', 
-                           color=cores_anos[ano], label=f'{ano}')
-
-        axes[i].set_title(f"Temperatura Média - {regiao} (2020-2025)")
-        axes[i].set_xlabel("Mês")
-        axes[i].set_xticks(range(1, 13))
-        axes[i].set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
-        axes[i].grid(True)
-        axes[i].legend(title="Ano")
-
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # Exibir os meses/anos atípicos
-    if not meses_atipicos.empty:
-        st.subheader("Meses/Anos Atípicos Identificados")
-        st.dataframe(meses_atipicos)
-
-    # Análise dinâmica comparativa
-    st.subheader("Análise Comparativa das Regiões Selecionadas")
-    
-    # Explicação dinâmica baseada nas regiões selecionadas
-    st.markdown(f"""
-    ### Padrões Sazonais: {regiao_a} vs {regiao_b} (2020-2025)
-    
-    **{regiao_a}**:
-    - Temperatura média anual: {analise_regioes[regiao_a]['media']}°C
-    - Amplitude térmica anual: {analise_regioes[regiao_a]['amplitude']}°C
-    - Mês tipicamente mais quente: {analise_regioes[regiao_a]['mes_mais_quente']}º mês
-    - Mês tipicamente mais frio: {analise_regioes[regiao_a]['mes_mais_frio']}º mês
-    - Número de meses atípicos identificados: {analise_regioes[regiao_a]['num_atipicos']}
-    
-    **{regiao_b}**:
-    - Temperatura média anual: {analise_regioes[regiao_b]['media']}°C
-    - Amplitude térmica anual: {analise_regioes[regiao_b]['amplitude']}°C
-    - Mês tipicamente mais quente: {analise_regioes[regiao_b]['mes_mais_quente']}º mês
-    - Mês tipicamente mais frio: {analise_regioes[regiao_b]['mes_mais_frio']}º mês
-    - Número de meses atípicos identificados: {analise_regioes[regiao_b]['num_atipicos']}
-    
-    **Comparativo**:
-    - A região {regiao_a if analise_regioes[regiao_a]['amplitude'] > analise_regioes[regiao_b]['amplitude'] else regiao_b} apresenta maior variação sazonal.
-    - A região {regiao_a if analise_regioes[regiao_a]['media'] > analise_regioes[regiao_b]['media'] else regiao_b} é geralmente mais quente em média.
-    - {regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b} apresenta mais meses com temperaturas atípicas, sugerindo maior variabilidade climática.
-    
-    **Interpretação**:
-    Os gráficos mostram que {regiao_a} e {regiao_b} apresentam padrões sazonais distintos. Enquanto {regiao_a} {f"tem uma sazonalidade mais marcada" if analise_regioes[regiao_a]['amplitude'] > 5 else "mantém temperaturas mais estáveis ao longo do ano"}, {regiao_b} {f"exibe variações mais pronunciadas entre estações" if analise_regioes[regiao_b]['amplitude'] > 5 else "mostra pouca variação entre meses"}. Os meses atípicos identificados podem estar relacionados a eventos climáticos extremos ou mudanças nos padrões atmosféricos.
-    """)
+        # --- VISUALIZAÇÃO 2: EVOLUÇÃO TEMPORAL ---
+        elif tipo_visualizacao == 'Evolução Temporal':
+            st.subheader(f"Evolução Temporal da Radiação Global - {ano_selecionado}")
+            
+            # Agrupar por mês e região
+            df_evolucao = df_filtrado.groupby(['Mês', 'Regiao'])['RADIACAO GLOBAL (Kj/m²)'].mean().unstack()
+            
+            fig, ax = plt.subplots(figsize=(12, 6))
+            
+            # Cores distintas para cada região
+            cmap = get_cmap('tab10')
+            for i, regiao in enumerate(df_evolucao.columns):
+                ax.plot(df_evolucao.index, df_evolucao[regiao], 
+                        marker='o', linestyle='-', 
+                        color=cmap(i), 
+                        label=regiao)
+            
+            ax.set_xlabel('Mês')
+            ax.set_ylabel('Radiação Global (Kj/m²)')
+            ax.set_title(f'Evolução Mensal da Radiação Global por Região - {ano_selecionado}')
+            ax.set_xticks(range(1, 13))
+            ax.grid(True)
+            ax.legend(title='Região')
+            
+            st.pyplot(fig)
+            
+            # Análise textual dinâmica
+            st.markdown("""
+            **Análise:**
+            - Este gráfico mostra como a radiação global varia ao longo dos meses para cada região.
+            - Padrões sazonais podem ser identificados comparando as curvas de cada região.
+            - Meses com picos ou vales podem indicar características climáticas específicas.
+            """)
+        
+        # --- VISUALIZAÇÃO 3: ANÁLISE DETALHADA ---
+        elif tipo_visualizacao == 'Análise Detalhada':
+            st.subheader(f"Análise Detalhada - {ano_selecionado}")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Top 5 Meses com Maior Radiação**")
+                df_top_meses = df_filtrado.groupby(['Regiao', 'Mês'])['RADIACAO GLOBAL (Kj/m²)'].mean().nlargest(5).reset_index()
+                st.dataframe(df_top_meses.style.format({'RADIACAO GLOBAL (Kj/m²)': '{:.2f}'}))
+            
+            with col2:
+                st.markdown("**Top 5 Meses com Menor Radiação**")
+                df_bottom_meses = df_filtrado.groupby(['Regiao', 'Mês'])['RADIACAO GLOBAL (Kj/m²)'].mean().nsmallest(5).reset_index()
+                st.dataframe(df_bottom_meses.style.format({'RADIACAO GLOBAL (Kj/m²)': '{:.2f}'}))
+            
+            # Heatmap de radiação por região e mês
+            st.markdown("**Mapa de Calor: Radiação por Região e Mês**")
+            df_heatmap = df_filtrado.groupby(['Regiao', 'Mês'])['RADIACAO GLOBAL (Kj/m²)'].mean().unstack()
+            
+            fig, ax = plt.subplots(figsize=(12, 6))
+            im = ax.imshow(df_heatmap, cmap='YlOrRd', aspect='auto')
+            
+            ax.set_xticks(np.arange(len(df_heatmap.columns)))
+            ax.set_yticks(np.arange(len(df_heatmap.index)))
+            ax.set_xticklabels(df_heatmap.columns)
+            ax.set_yticklabels(df_heatmap.index)
+            plt.colorbar(im, label='Radiação Global (Kj/m²)')
+            ax.set_title(f'Radiação Global por Região e Mês - {ano_selecionado}')
+            
+            st.pyplot(fig)
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a estrutura de pastas.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV.")
+    st.error(f"Erro: A coluna {e} não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto no código e no arquivo.")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    st.error(f"Ocorreu um erro inesperado: {e}")
