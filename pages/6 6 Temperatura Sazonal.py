@@ -75,6 +75,22 @@ try:
         st.subheader("Meses/Anos Atípicos Identificados")
         st.dataframe(meses_atipicos)
 
+    # Gerar explicação baseada nas regiões selecionadas
+    explicacoes = {
+        "Sul": "A região Sul apresenta temperaturas mais frias no inverno (junho-agosto) e verões quentes (dezembro-fevereiro), sendo influenciada por frentes frias.",
+        "Norte": "A região Norte tem pouca variação sazonal, com temperaturas geralmente elevadas durante todo o ano, mas pode sofrer influência de eventos climáticos extremos.",
+        "Centro-Oeste": "O Centro-Oeste apresenta períodos de seca e chuvas bem definidos, com temperaturas altas na estiagem e variações durante as chuvas.",
+        "Sudeste": "A região Sudeste tem maior variação ao longo do ano, com temperaturas amenas no inverno e calor intenso no verão.",
+        "Nordeste": "No Nordeste, o clima é quente e úmido ao longo do ano, mas pode haver variações associadas a fenômenos como El Niño e La Niña."
+    }
+
+    explicacao_a = explicacoes.get(regiao_a, "Sem informações sobre esta região.")
+    explicacao_b = explicacoes.get(regiao_b, "Sem informações sobre esta região.")
+
+    st.subheader("Análise dos Padrões Sazonais de Temperatura")
+    st.write(f"**Região {regiao_a}:** {explicacao_a}")
+    st.write(f"**Região {regiao_b}:** {explicacao_b}")
+
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
 except KeyError as e:
