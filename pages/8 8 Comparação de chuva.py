@@ -4,100 +4,122 @@ import streamlit as st
 import os
 import numpy as np
 
-# --- TÍTULO ATUALIZADO ---
-st.title("Comparação Climática: Precipitação nas Regiões Norte vs. Sul (2020-2025)")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(
+    page_title="Norte vs. Sul: Análise de Chuvas",
+    page_icon="🌦️",
+    layout="wide"
+)
 
+# --- TÍTULO PRINCIPAL ---
+st.title("🌦️ Análise Comparativa de Precipitação: Regiões Norte vs. Sul (2020-2025)")
+st.markdown("Uma análise dos regimes de chuva, mostrando as diferenças de volume, picos e períodos de seca entre as duas regiões.")
+
+# --- FUNÇÃO OTIMIZADA PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
-def carregar_dados(caminho):
+def carregar_e_preparar_dados(caminho):
     """
-    Carrega os dados do arquivo CSV, valida colunas e realiza o pré-processamento.
+    Carrega, filtra e prepara os dados de precipitação para as regiões Norte e Sul.
     """
-    df = pd.read_csv(caminho)
-
-    # Validação crucial para garantir que a coluna de precipitação existe
-    coluna_precipitacao = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
-    if coluna_precipitacao not in df.columns:
-        raise KeyError(f"A coluna necessária '{coluna_precipitacao}' não foi encontrada no arquivo CSV.")
-
-    # Garante que as colunas essenciais são numéricas
-    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
-    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-
-    # Remove linhas onde os dados essenciais são nulos
-    df = df.dropna(subset=['Mês', 'Ano', 'Regiao', coluna_precipitacao])
-    return df
-
-try:
-    # Caminho do arquivo
-    caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
-    df_unificado = carregar_dados(caminho_arquivo_unificado)
-
-    # --- FILTROS NA BARRA LATERAL ---
-    st.sidebar.header("Filtros")
-    anos_disponiveis = sorted(df_unificado['Ano'].unique().astype(int))
-    anos_selecionados = st.sidebar.multiselect("Selecione os Anos para Análise:", options=anos_disponiveis, default=anos_disponiveis)
-
-    if not anos_selecionados:
-        st.warning("Por favor, selecione pelo menos um ano para continuar.")
+    try:
+        df = pd.read_csv(caminho)
+        
+        # Filtrar apenas para as colunas e regiões de interesse
+        colunas_necessarias = ['Regiao', 'Ano', 'Mês', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']
+        if not all(col in df.columns for col in colunas_necessarias):
+            st.error("O arquivo CSV não contém todas as colunas necessárias. Verifique o arquivo.")
+            st.stop()
+            
+        df_filtrado = df[df['Regiao'].isin(['Norte', 'Sul'])][colunas_necessarias]
+        
+        # Garantir que os tipos de dados estão corretos
+        for col in ['Ano', 'Mês', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']:
+            df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
+        
+        df_filtrado.dropna(inplace=True)
+        return df_filtrado
+        
+    except FileNotFoundError:
+        st.error(f"Erro: O arquivo '{caminho}' não foi encontrado. Verifique o caminho e o nome do arquivo.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Ocorreu um erro inesperado ao carregar os dados: {e}")
         st.stop()
 
-    # --- PREPARAÇÃO DOS DADOS FOCADA NA COMPARAÇÃO ---
-    regioes_para_comparar = ['Norte', 'Sul']
-    coluna_var = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
+# --- CARREGAMENTO E PROCESSAMENTO ---
+caminho_arquivo = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+df_chuva = carregar_e_preparar_dados(caminho_arquivo)
 
-    df_filtrado = df_unificado[df_unificado['Regiao'].isin(regioes_para_comparar) & df_unificado['Ano'].isin(anos_selecionados)]
+# Calcular a média mensal de precipitação para cada região (agregando todos os anos)
+media_norte = df_chuva[df_chuva['Regiao'] == 'Norte'].groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean()
+media_sul = df_chuva[df_chuva['Regiao'] == 'Sul'].groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean()
 
-    if df_filtrado.empty:
-        st.error("Não foram encontrados dados de precipitação para as Regiões Norte/Sul nos anos selecionados.")
-        st.stop()
+# Garantir que todos os meses de 1 a 12 estão presentes
+media_norte = media_norte.reindex(range(1, 13), fill_value=0)
+media_sul = media_sul.reindex(range(1, 13), fill_value=0)
 
-    # --- VISUALIZAÇÃO GRÁFICA ---
-    st.header("Comparação da Precipitação: Norte vs. Sul")
+# --- GRÁFICO COMPARATIVO ---
+st.header("Comparativo de Precipitação Mensal Média (2020-2025)")
 
-    fig, ax = plt.subplots(figsize=(12, 7))
-    cores_regiao = {'Norte': '#0077b6', 'Sul': '#d9534f'}
-    dados_volume = {}
+fig, ax = plt.subplots(figsize=(12, 6))
 
-    for regiao in regioes_para_comparar:
-        df_regiao_filtrada = df_filtrado[df_filtrado['Regiao'] == regiao]
-        if not df_regiao_filtrada.empty:
-            media_mensal_regiao = df_regiao_filtrada.groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
+# Plotar dados
+ax.plot(media_norte.index, media_norte.values, marker='o', linestyle='-', color='#0077b6', label='Região Norte')
+ax.plot(media_sul.index, media_sul.values, marker='x', linestyle='--', color='#d9534f', label='Região Sul')
 
-            volume_anual = media_mensal_regiao.sum()
-            dados_volume[regiao] = f"{volume_anual:,.0f} mm/ano".replace(",", ".")
+# Estilização do Gráfico
+ax.set_title('Média Mensal de Precipitação: Norte vs. Sul', fontsize=16, weight='bold')
+ax.set_xlabel('Mês', fontsize=12)
+ax.set_ylabel('Precipitação Média (mm)', fontsize=12)
+ax.set_xticks(range(1, 13))
+ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+ax.grid(True, linestyle='--', alpha=0.6)
+ax.legend(title='Região', fontsize=10)
+plt.tight_layout()
 
-            ax.plot(media_mensal_regiao.index, media_mensal_regiao.values, marker='o', linestyle='-', color=cores_regiao[regiao], label=f'Região {regiao}', linewidth=2.5)
+st.pyplot(fig)
 
-    ax.set_title("Comparação da Média Mensal de Precipitação (2020-2025)", fontsize=16)
-    ax.set_xlabel("Mês", fontsize=12)
-    ax.set_ylabel("Precipitação Média Mensal (mm)", fontsize=12)
-    ax.set_xticks(range(1, 13))
-    ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
-    ax.grid(True, linestyle='--', linewidth=0.5)
-    ax.legend(fontsize=12)
 
-    st.pyplot(fig)
+# --- ANÁLISE QUANTITATIVA E JUSTIFICATIVAS ---
+st.markdown("---")
+st.header("Análise Detalhada e Fatores Climáticos")
 
-    # --- ANÁLISE COMPARATIVA ---
-    st.header("Justificativa das Diferenças Climáticas")
+col1, col2 = st.columns(2, gap="large")
 
-    st.markdown(f"""
-    - 📍 **Região Norte:** Volume médio anual de **{dados_volume.get('Norte', 'N/D')}** mm.
-        - Chuvas concentradas no **primeiro semestre**, intensificadas pela **Zona de Convergência Intertropical (ZCIT)**.
-        - Evapotranspiração da floresta Amazônica impulsiona altos índices de precipitação.
-        - **Estiagem no segundo semestre**, com redução significativa, mas sem seca absoluta.
+with col1:
+    st.subheader("📊 Resumo dos Regimes de Chuva")
+    
+    # Calcular estatísticas
+    stats = {
+        'Região Norte': {
+            'Volume Anual (mm)': media_norte.sum(),
+            'Mês de Pico de Chuva': media_norte.idxmax(),
+            'Pico (mm)': media_norte.max(),
+            'Mês mais Seco': media_norte.idxmin(),
+            'Seca (mm)': media_norte.min()
+        },
+        'Região Sul': {
+            'Volume Anual (mm)': media_sul.sum(),
+            'Mês de Pico de Chuva': media_sul.idxmax(),
+            'Pico (mm)': media_sul.max(),
+            'Mês mais Seco': media_sul.idxmin(),
+            'Seca (mm)': media_sul.min()
+        }
+    }
+    
+    df_stats = pd.DataFrame(stats).T
+    st.dataframe(df_stats.style.format({
+        "Volume Anual (mm)": "{:.1f}",
+        "Pico (mm)": "{:.1f}",
+        "Seca (mm)": "{:.1f}",
+        "Mês de Pico de Chuva": "{}",
+        "Mês mais Seco": "{}"
+    }).highlight_max(axis=0, color='#d4edda').highlight_min(axis=0, color='#f8d7da'))
 
-    - 📍 **Região Sul:** Volume médio anual de **{dados_volume.get('Sul', 'N/D')}** mm.
-        - Distribuição de chuvas **mais uniforme** ao longo do ano, sem estação seca definida.
-        - Influência direta de **frentes frias**, gerando chuvas frequentes.
-        - Fenômenos como **El Niño** e **La Niña** alteram padrões, causando períodos de excesso ou estiagem.
-
-    🔎 **Resumo**: Enquanto o Norte tem chuvas intensas concentradas no início do ano devido à influência da ZCIT e da Amazônia, o Sul experimenta um padrão mais estável ao longo do ano, regulado por frentes frias e variações climáticas globais.
+with col2:
+    st.subheader("🌍 Por que as Diferenças Ocorrem?")
+    st.markdown("""
+    As diferenças nos regimes de chuva entre o Norte e o Sul do Brasil são causadas por sistemas climáticos distintos que atuam em cada região.
     """)
 
-except KeyError as e:
-    st.error(f"Erro na estrutura do arquivo CSV: {e}. Verifique se o nome da coluna está correto.")
-except FileNotFoundError:
-    st.error(f"Erro de Arquivo: '{caminho_arquivo_unificado}' não foi encontrado.")
-except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+with st.expander("**Clique aqui para ver a justificação climatológica detalhada**"):
