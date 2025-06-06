@@ -2,12 +2,11 @@ import pandas as pd
 import streamlit as st
 import os
 import matplotlib.pyplot as plt
-import numpy as np # Necessário para algumas manipulações e cores
 
-# Caminho relativo ao arquivo CSV dentro do projeto
+# Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-st.title("Análise de Radiação Global em 2020")
+st.title("Análise Personalizada de Radiação Global (2020-2025)")
 
 try:
     # Ler o arquivo unificado
@@ -19,81 +18,153 @@ try:
         if coluna not in df_unificado.columns:
             raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV.")
 
-    # Filtrar dados para o ano de 2020
-    df_2020 = df_unificado[df_unificado['Ano'] == 2020].copy()
+    # Widgets de seleção na sidebar
+    st.sidebar.header("Selecione os Filtros")
+    
+    # Selecionar ano
+    anos_disponiveis = sorted(df_unificado['Ano'].unique())
+    ano_selecionado = st.sidebar.selectbox(
+        "Ano:",
+        options=anos_disponiveis,
+        index=len(anos_disponiveis)-1 if 2023 not in anos_disponiveis else anos_disponiveis.index(2023)
+    )
+    
+    # Dicionário de meses
+    meses_nome = {
+        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+    }
+    
+    # Filtrar meses disponíveis para o ano selecionado
+    meses_disponiveis = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
+    meses_nome_disponiveis = [meses_nome[mes] for mes in meses_disponiveis]
+    
+    # Selecionar mês
+    mes_selecionado_nome = st.sidebar.selectbox(
+        "Mês:",
+        options=meses_nome_disponiveis,
+        index=0  # Sempre começa com o primeiro mês disponível
+    )
+    
+    # Obter o número do mês selecionado
+    mes_selecionado = [num for num, nome in meses_nome.items() if nome == mes_selecionado_nome][0]
+    
+    # Selecionar região
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    regiao_selecionada = st.sidebar.selectbox(
+        "Região:",
+        options=regioes_disponiveis,
+        index=0  # Sempre começa com a primeira região disponível
+    )
 
-    if df_2020.empty:
-        st.warning("Não foram encontrados dados para o ano de 2020.")
+    # --- ANÁLISE PARA O ANO, MÊS E REGIÃO SELECIONADOS ---
+    st.subheader(f"Análise para {mes_selecionado_nome} de {ano_selecionado} - Região {regiao_selecionada}")
+
+    # Filtrar dados para a seleção
+    df_filtrado = df_unificado[
+        (df_unificado['Ano'] == ano_selecionado) &
+        (df_unificado['Mês'] == mes_selecionado) &
+        (df_unificado['Regiao'] == regiao_selecionada)
+    ]
+
+    if df_filtrado.empty:
+        st.warning(f"Não foram encontrados dados para a região {regiao_selecionada} em {mes_selecionado_nome}/{ano_selecionado}.")
     else:
-        # --- INÍCIO DA LÓGICA PARA ENCONTRAR O RESULTADO PRINCIPAL ---
-        # (Como no script anterior, para encontrar a região e o mês com a maior média)
-        df_media_mensal_radiacao_2020 = df_2020[['Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']]
-        idx_maior_radiacao_geral = df_media_mensal_radiacao_2020['RADIACAO GLOBAL (Kj/m²)'].idxmax()
-        maior_media_geral = df_media_mensal_radiacao_2020.loc[idx_maior_radiacao_geral]
+        # Calcular média para a região selecionada
+        media_regiao = df_filtrado['RADIACAO GLOBAL (Kj/m²)'].mean()
+        
+        # Comparar com a média geral do mês
+        media_geral_mes = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Mês'] == mes_selecionado)
+        ]['RADIACAO GLOBAL (Kj/m²)'].mean()
+        
+        # Comparar com a média anual da região
+        media_anual_regiao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Regiao'] == regiao_selecionada)
+        ]['RADIACAO GLOBAL (Kj/m²)'].mean()
 
-        regiao_maior_media = maior_media_geral['Regiao']
-        mes_maior_media = int(maior_media_geral['Mês']) # Convertendo para int para uso posterior
-        valor_maior_media = maior_media_geral['RADIACAO GLOBAL (Kj/m²)']
+        # Exibir métricas
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                label=f"Radiação em {mes_selecionado_nome}",
+                value=f"{media_regiao:.2f} Kj/m²",
+                delta=f"{(media_regiao - media_geral_mes):.2f} vs média geral do mês"
+            )
+        with col2:
+            st.metric(
+                label="Média Geral do Mês",
+                value=f"{media_geral_mes:.2f} Kj/m²"
+            )
+        with col3:
+            st.metric(
+                label="Média Anual da Região",
+                value=f"{media_anual_regiao:.2f} Kj/m²",
+                delta=f"{(media_regiao - media_anual_regiao):.2f} vs média anual"
+            )
 
-        st.subheader("Resultado da Análise para 2020:")
-        st.write(
-            f"A região que apresentou a maior média de radiação global em um único mês durante o ano de 2020 foi a **{regiao_maior_media}**."
-        )
-        st.write(
-            f"Isso ocorreu no **Mês {mes_maior_media}**."
-        )
-        st.write(
-            f"A média aproximada de radiação global foi de **{valor_maior_media:.2f} Kj/m²**."
-        )
-        # --- FIM DA LÓGICA PARA ENCONTRAR O RESULTADO PRINCIPAL ---
+        # --- GRÁFICO DE COMPARAÇÃO REGIONAL ---
+        st.subheader(f"Comparação Regional para {mes_selecionado_nome}/{ano_selecionado}")
 
-        # --- INÍCIO DO CÓDIGO PARA GERAR O GRÁFICO DO RESULTADO ESPECÍFICO ---
-        st.subheader(f"Comparativo da Radiação Global em {mes_maior_media}/2020 por Região")
+        # Dados para comparação
+        df_comparacao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Mês'] == mes_selecionado)
+        ].groupby('Regiao')['RADIACAO GLOBAL (Kj/m²)'].mean().sort_values(ascending=False)
 
-        # Filtrar dados para o mês e ano de maior radiação (Outubro de 2020)
-        df_mes_especifico = df_2020[df_2020['Mês'] == mes_maior_media]
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Cores - destacar a região selecionada
+        cores = ['lightgray' if regiao != regiao_selecionada else 'coral' 
+                for regiao in df_comparacao.index]
+        
+        bars = ax.bar(df_comparacao.index, df_comparacao.values, color=cores)
+        
+        ax.set_xlabel('Região')
+        ax.set_ylabel('Radiação Global Média (Kj/m²)')
+        ax.set_title(f'Comparação Regional - {mes_selecionado_nome}/{ano_selecionado}')
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-        # Calcular a média de radiação por região para este mês específico
-        # Se já houver uma única entrada por Regiao/Mês, o groupby não mudará o valor, mas garante a estrutura.
-        # Se houver múltiplas estações por região, isso calculará a média regional para o mês.
-        media_radiacao_mes_especifico_por_regiao = df_mes_especifico.groupby('Regiao')['RADIACAO GLOBAL (Kj/m²)'].mean().sort_values(ascending=False)
+        # Adicionar valores nas barras
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*yval, 
+                   f'{yval:.2f}', ha='center', va='bottom')
 
-        if media_radiacao_mes_especifico_por_regiao.empty:
-            st.warning(f"Não foram encontrados dados de radiação para todas as regiões no mês {mes_maior_media} de 2020.")
-        else:
-            fig_resultado, ax_resultado = plt.subplots(figsize=(10, 6))
-            
-            cores = ['skyblue'] * len(media_radiacao_mes_especifico_por_regiao)
-            # Destacar a região com a maior média
-            if regiao_maior_media in media_radiacao_mes_especifico_por_regiao.index:
-                indice_regiao_destaque = media_radiacao_mes_especifico_por_regiao.index.get_loc(regiao_maior_media)
-                cores[indice_regiao_destaque] = 'coral'
-            
-            bars = ax_resultado.bar(media_radiacao_mes_especifico_por_regiao.index, media_radiacao_mes_especifico_por_regiao.values, color=cores)
-            
-            ax_resultado.set_xlabel('Região')
-            ax_resultado.set_ylabel('Radiação Global Média (Kj/m²)')
-            ax_resultado.set_title(f'Média de Radiação Global por Região - Mês {mes_maior_media}/2020')
-            ax_resultado.set_xticks(media_radiacao_mes_especifico_por_regiao.index)
-            ax_resultado.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        st.pyplot(fig)
 
-            # Adicionar valores no topo das barras
-            for bar in bars:
-                yval = bar.get_height()
-                plt.text(bar.get_x() + bar.get_width()/2.0, yval + 0.05 * valor_maior_media, f'{yval:.2f}', ha='center', va='bottom')
+        # --- EVOLUÇÃO MENSAL DA REGIÃO SELECIONADA ---
+        st.subheader(f"Evolução Mensal em {ano_selecionado} - Região {regiao_selecionada}")
 
-            plt.tight_layout()
-            st.pyplot(fig_resultado)
-        # --- FIM DO CÓDIGO PARA GERAR O GRÁFICO DO RESULTADO ESPECÍFICO ---
+        df_evolucao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Regiao'] == regiao_selecionada)
+        ].groupby('Mês')['RADIACAO GLOBAL (Kj/m²)'].mean()
 
-        st.markdown("---") # Separador visual
-        # ... (o restante do seu código de visualização interativa pode continuar aqui) ...
-        # st.title("Médias Mensais Regionais (2020-2025) - Facetado por Região e Variável")
-        # (coloque o código dos gráficos facetados aqui, se desejar mantê-los)
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
+        ax2.plot(df_evolucao.index, df_evolucao.values, marker='o', color='coral')
+        
+        # Destacar o mês selecionado
+        ax2.axvline(x=mes_selecionado, color='gray', linestyle='--', alpha=0.5)
+        ax2.text(mes_selecionado, ax2.get_ylim()[1]*0.9, 
+                f'Mês selecionado\n{mes_selecionado_nome}', 
+                ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8))
+
+        ax2.set_xlabel('Mês')
+        ax2.set_ylabel('Radiação Global Média (Kj/m²)')
+        ax2.set_title(f'Evolução Mensal - Região {regiao_selecionada} - {ano_selecionado}')
+        ax2.set_xticks(range(1, 13))
+        ax2.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        st.pyplot(fig2)
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a estrutura de pastas.")
 except KeyError as e:
     st.error(f"Erro: A coluna {e} não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto no código e no arquivo.")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+    st.error(f"Ocorreu um erro inesperado: {str(e)}")
