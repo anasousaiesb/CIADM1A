@@ -9,7 +9,7 @@ st.title("Análise Personalizada de Radiação Global (2020-2025)")
 # Função para carregar e consolidar os dados
 def carregar_dados():
     # Padrão para encontrar os arquivos
-    padrao_arquivos = os.path.join("CIADM1A", "medias", "medias_mensais_geo_2020_2025.csv")
+    padrao_arquivos = os.path.join("CIADM1A", "medias", "medias_mensais_geo_temp_media_*.csv")
     arquivos = glob(padrao_arquivos)
     
     if not arquivos:
