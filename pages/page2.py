@@ -22,35 +22,40 @@ try:
     st.sidebar.header("Selecione os Filtros")
     
     # Selecionar ano
+    anos_disponiveis = sorted(df_unificado['Ano'].unique())
     ano_selecionado = st.sidebar.selectbox(
         "Ano:",
-        options=sorted(df_unificado['Ano'].unique()),
-        index=3  # 2023 como padrão
+        options=anos_disponiveis,
+        index=len(anos_disponiveis)-1 if 2023 not in anos_disponiveis else anos_disponiveis.index(2023)
     )
     
-    # Filtrar meses disponíveis para o ano selecionado
-    meses_disponiveis = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
+    # Dicionário de meses
     meses_nome = {
         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
         5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
         9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
     }
     
-    # Selecionar mês por nome
+    # Filtrar meses disponíveis para o ano selecionado
+    meses_disponiveis = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
+    meses_nome_disponiveis = [meses_nome[mes] for mes in meses_disponiveis]
+    
+    # Selecionar mês
     mes_selecionado_nome = st.sidebar.selectbox(
         "Mês:",
-        options=[meses_nome[mes] for mes in meses_disponiveis],
-        index=0  # Janeiro como padrão
+        options=meses_nome_disponiveis,
+        index=0  # Sempre começa com o primeiro mês disponível
     )
     
     # Obter o número do mês selecionado
     mes_selecionado = [num for num, nome in meses_nome.items() if nome == mes_selecionado_nome][0]
     
     # Selecionar região
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
     regiao_selecionada = st.sidebar.selectbox(
         "Região:",
-        options=sorted(df_unificado['Regiao'].unique()),
-        index=0  # Norte como padrão
+        options=regioes_disponiveis,
+        index=0  # Sempre começa com a primeira região disponível
     )
 
     # --- ANÁLISE PARA O ANO, MÊS E REGIÃO SELECIONADOS ---
@@ -162,4 +167,4 @@ except FileNotFoundError:
 except KeyError as e:
     st.error(f"Erro: A coluna {e} não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto no código e no arquivo.")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+    st.error(f"Ocorreu um erro inesperado: {str(e)}")
