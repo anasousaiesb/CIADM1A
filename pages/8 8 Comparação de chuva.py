@@ -10,13 +10,21 @@ st.title("Comparativo de Precipitação: Norte vs. Sul (2020-2025)")
 @st.cache_data
 def carregar_dados(caminho):
     """
-    Carrega os dados do arquivo CSV e realiza o pré-processamento.
+    Carrega os dados do arquivo CSV, valida colunas e realiza o pré-processamento.
     """
     df = pd.read_csv(caminho)
+    
+    # Validação crucial para garantir que a coluna de precipitação existe
+    coluna_precipitacao = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
+    if coluna_precipitacao not in df.columns:
+        raise KeyError(f"A coluna necessária '{coluna_precipitacao}' não foi encontrada no arquivo CSV.")
+
     # Garante que as colunas importantes são numéricas
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
     df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    df = df.dropna(subset=['Mês', 'Ano', 'Regiao', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'])
+    
+    # Remove linhas onde os dados essenciais são nulos
+    df = df.dropna(subset=['Mês', 'Ano', 'Regiao', coluna_precipitacao])
     return df
 
 try:
@@ -40,36 +48,36 @@ try:
         st.stop()
         
     # --- PREPARAÇÃO DOS DADOS FOCADA NA COMPARAÇÃO ---
-    # Foco exclusivo nas regiões Norte e Sul e na variável de precipitação
     regioes_para_comparar = ['Norte', 'Sul']
     coluna_var = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
-    nome_var = 'Precipitação Total (mm)'
     
     df_filtrado = df_unificado[
         df_unificado['Regiao'].isin(regioes_para_comparar) &
         df_unificado['Ano'].isin(anos_selecionados)
     ]
+    
+    # --- AJUSTE: VERIFICAÇÃO SE EXISTEM DADOS PARA PLOTAR ---
+    if df_filtrado.empty:
+        st.error("Não foram encontrados dados de precipitação para a combinação de filtros selecionada (Regiões Norte/Sul e anos escolhidos).")
+        st.info("Por favor, verifique se os anos selecionados contêm dados para as Regiões Norte e Sul no seu arquivo CSV.")
+        st.stop()
 
     # --- GRÁFICO COMPARATIVO ÚNICO ---
     st.header("Variação Média Mensal da Precipitação")
 
     fig, ax = plt.subplots(figsize=(12, 7))
     
-    # Cores definidas para cada região para melhor visualização
     cores_regiao = {'Norte': '#0077b6', 'Sul': '#d9534f'}
     dados_volume = {}
 
     for regiao in regioes_para_comparar:
         df_regiao_filtrada = df_filtrado[df_filtrado['Regiao'] == regiao]
         if not df_regiao_filtrada.empty:
-            # Calcula a média mensal de todos os anos selecionados
             media_mensal_regiao = df_regiao_filtrada.groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
             
-            # Calcula o volume total médio anual
             volume_anual = media_mensal_regiao.sum()
             dados_volume[regiao] = f"{volume_anual:,.0f} mm/ano".replace(",",".")
 
-            # Plota a curva da região
             ax.plot(media_mensal_regiao.index, media_mensal_regiao.values, 
                     marker='o', linestyle='-', color=cores_regiao[regiao], label=f'Região {regiao}', linewidth=2.5)
 
@@ -92,7 +100,7 @@ try:
         st.metric(label="Volume Médio Anual", value=dados_volume.get('Norte', 'N/D'))
         st.markdown("""
         - **Regime de Chuvas:** Caracterizado por **elevados volumes** e uma sazonalidade bem definida.
-        - **Pico (Inverno Amazônico):** Ocorre tipicamente no **primeiro semestre** (pico entre Fev-Abr). Este período de chuvas intensas é causado pela forte atuação da **Zona de Convergência Intertropical (ZCIT)**, uma faixa de nuvens que circunda o globo na região equatorial.
+        - **Pico (Inverno Amazônico):** Ocorre tipicamente no **primeiro semestre** (pico entre Fev-Abr). Este período de chuvas intensas é causado pela forte atuação da **Zona de Convergência Intertropical (ZCIT)**.
         - **Período mais seco:** Ocorre no **segundo semestre**. Não é uma seca completa, mas uma redução significativa das chuvas, quando a ZCIT se desloca para o hemisfério norte.
         - **Fator Principal:** A **floresta amazônica** contribui com imensa umidade para a atmosfera (evapotranspiração), potencializando as chuvas.
         """)
@@ -101,13 +109,15 @@ try:
         st.subheader("🌬️ Região Sul")
         st.metric(label="Volume Médio Anual", value=dados_volume.get('Sul', 'N/D'))
         st.markdown("""
-        - **Regime de Chuvas:** É a região com a chuva **melhor distribuída ao longo do ano** no Brasil. Não há uma estação seca definida como nas outras regiões.
-        - **Picos e Secas:** Os picos de chuva não são tão definidos e podem ocorrer em qualquer estação. As chuvas são majoritariamente provocadas pela passagem de **sistemas frontais (frentes frias)**, que são frequentes durante todo o ano.
+        - **Regime de Chuvas:** É a região com a chuva **melhor distribuída ao longo do ano** no Brasil. Não há uma estação seca definida.
+        - **Picos e Secas:** As chuvas são majoritariamente provocadas pela passagem de **sistemas frontais (frentes frias)**, que são frequentes durante todo o ano.
         - **Variabilidade:** O volume de chuva é muito influenciado por fenômenos como **El Niño** (que tende a aumentar as chuvas) e **La Niña** (que pode causar secas ou "estiagens" severas).
-        - **Fator Principal:** A **localização em latitude média** (clima subtropical) a torna suscetível ao encontro de massas de ar frio (polar) e quente (tropical), gerando instabilidade e chuvas constantes.
+        - **Fator Principal:** A **localização em latitude média** (clima subtropical) a torna suscetível ao encontro de massas de ar frio e quente, gerando instabilidade e chuvas constantes.
         """)
 
+except KeyError as e:
+    st.error(f"Erro de Coluna: {e}. Verifique se o nome da coluna está correto no seu arquivo CSV.")
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo no caminho '{caminho_arquivo_unificado}' não foi encontrado.")
+    st.error(f"Erro de Arquivo: O arquivo no caminho '{caminho_arquivo_unificado}' não foi encontrado.")
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado: {e}")
