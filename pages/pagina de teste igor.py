@@ -3,149 +3,176 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
+from matplotlib.cm import get_cmap
 
-# Caminho relativo ao arquivo CSV dentro do projeto
-# Certifique-se de que o arquivo 'medias_mensais_geo_2020_2025.csv'
-# esteja no subdiretório 'medias' em relação ao script Python.
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide")
+st.title("Análise Climática Regional do Brasil (2020-2025)")
 
-st.title("Médias Mensais Regionais (2020-2025) - Facetado por Região e Variável")
+# Caminho relativo ao arquivo CSV
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS (CACHEADA) ---
+@st.cache_data
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
+    
+    # Pré-processamento: Calcula a Temp_Media se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] + 
+                            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
+
+    # Converte colunas para numérico, tratando erros
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano', 'Regiao'])
+    return df
+
+# --- BLOCO PRINCIPAL DO SCRIPT ---
 try:
-    # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado)
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # Calcular a média da temperatura se as colunas de max/min existirem
-    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
-       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
-        df_unificado['Temperatura Média (°C)'] = (
-            df_unificado['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-            df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
-        ) / 2
-    elif 'Temperatura Média (°C)' not in df_unificado.columns:
-        pass 
-
-    # Certificar-se de que a coluna 'Mês' é numérica
-    df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
-    df_unificado = df_unificado.dropna(subset=['Mês'])
-
-    # Lista de regiões e anos únicas
+    # --- INTERFACE DO USUÁRIO NA BARRA LATERAL ---
+    st.sidebar.header("Filtros de Visualização")
+    
     regioes = sorted(df_unificado['Regiao'].unique())
     anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique())
+    
+    # <-- ALTERAÇÃO: Trocado selectbox por multiselect para permitir múltiplas seleções
+    regioes_selecionadas = st.sidebar.multiselect(
+        "Selecione uma ou mais Regiões:", 
+        regioes, 
+        default=[regioes[0]] if regioes else [] # <-- ALTERAÇÃO: Define uma região padrão para o primeiro carregamento
+    )
 
-    # Variáveis a serem plotadas
+    # <-- ALTERAÇÃO: Verifica se o usuário selecionou pelo menos uma região
+    if not regioes_selecionadas:
+        st.warning("Por favor, selecione pelo menos uma região para visualizar a análise.")
+        st.stop()
+
     variaveis = {
-        'Temperatura Média (°C)': 'Temperatura Média (°C)',
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+        'Temperatura Média (°C)': 'Temp_Media',
         'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
-
-    # Seleção interativa da variável, com 'Radiação Global (Kj/m²)' como padrão
-    if 'Radiação Global (Kj/m²)' in variaveis:
-        default_var_index = list(variaveis.keys()).index('Radiação Global (Kj/m²)')
-    else:
-        default_var_index = 0
-
-    nome_var = st.selectbox("Selecione a variável para visualizar:", list(variaveis.keys()), index=default_var_index)
+    nome_var = st.sidebar.selectbox("Selecione a Variável:", list(variaveis.keys()))
     coluna_var = variaveis[nome_var]
-
-    # Cores para os anos
-    cmap = plt.get_cmap('viridis')
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
-
-    # Gráfico facetado por região
-    st.subheader(f"Média Mensal de {nome_var} por Região (2020-2025)")
     
-    n_cols = 3
-    n_rows = int(np.ceil(len(regioes) / n_cols))
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5*n_cols, 4*n_rows), sharey=True)
+    if coluna_var not in df_unificado.columns:
+        st.error(f"Erro Crítico: A coluna '{coluna_var}' necessária para a variável '{nome_var}' não foi encontrada no arquivo CSV.")
+        if nome_var == 'Temperatura Média (°C)':
+            st.info("Lembre-se: Para a temperatura, o script busca a coluna 'Temp_Media' ou tenta calculá-la a partir das colunas de temperatura máxima e mínima.")
+        st.stop()
+
+    # --- LÓGICA DE PROCESSAMENTO E PLOTAGEM ---
+    # <-- ALTERAÇÃO: Cria um título com base na lista de regiões selecionadas
+    titulo_regioes = ", ".join(regioes_selecionadas)
     
-    if n_rows * n_cols > 1:
-        axes = axes.flatten()
-    elif len(regioes) == 1:
-        axes = [axes]
+    unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
+    
+    # <-- ALTERAÇÃO: Filtra o DataFrame usando isin() para incluir todas as regiões selecionadas
+    df_regiao = df_unificado[df_unificado['Regiao'].isin(regioes_selecionadas)]
 
-    for i, regiao in enumerate(regioes):
-        ax = axes[i]
-        df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
-        for ano in anos:
-            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
-            if not df_ano_regiao.empty:
-                ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-        ax.set_title(regiao)
-        ax.set_xlabel('Mês')
-        if i % n_cols == 0:
-            ax.set_ylabel(nome_var)
-        ax.set_xticks(meses)
-        ax.grid(True)
+    # --- VISUALIZAÇÃO PRINCIPAL (Sazonalidade Anual) ---
+    st.subheader(f"Comparativo Anual de {nome_var} na(s) Região(ões) {titulo_regioes}")
 
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
+    cmap = get_cmap('plasma')
+    cores_anos = {ano: cmap(i / (len(anos) -1 if len(anos) > 1 else 1)) for i, ano in enumerate(anos)}
 
-    handles, labels = [], []
-    for ax_item in axes:
-        if ax_item and ax_item.lines:
-            handles, labels = ax_item.get_legend_handles_labels()
-            if handles:
-                break
-            
-    if handles and labels:
-        fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.05, 1))
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Agrupa os dados de todas as regiões selecionadas e calcula a média
+    valores_anuais_por_mes = {}
+    for ano in anos:
+        # A média agora é calculada sobre o conjunto de dados de todas as regiões escolhidas
+        df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
+        if not df_ano_regiao.empty:
+            ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
+        valores_anuais_por_mes[ano] = df_ano_regiao.values
 
-    plt.tight_layout(rect=[0, 0, 0.95, 1])
+    df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
+    media_historica_mensal = df_valores_anuais.mean(axis=1)
+
+    ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='black', label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=2.5)
+
+    # <-- ALTERAÇÃO: Título do gráfico atualizado
+    ax.set_title(f'Variação Mensal de {nome_var} por Ano - {titulo_regioes}', fontsize=16)
+    ax.set_xlabel('Mês', fontsize=12)
+    ax.set_ylabel(nome_var, fontsize=12)
+    ax.set_xticks(range(1, 13))
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
     st.pyplot(fig)
+    
+    st.markdown("---")
 
-    # --- Análise de Extremos de Radiação ---
-    if nome_var == 'Radiação Global (Kj/m²)':
-        st.subheader("Análise dos Extremos de Radiação Global (2020-2025)")
+    # --- SEÇÃO DE ANÁLISE E HIPÓTESES ---
+    st.header("Que hipóteses sobre o clima futuro podem ser formuladas com base nestes dados?")
+    st.warning("🚨 **Aviso:** A análise a seguir baseia-se em dados de curto prazo. As 'tendências' e 'hipóteses' são exercícios exploratórios e **não devem ser consideradas previsões climáticas definitivas**.")
 
-        # Garante que a coluna de radiação existe e não está vazia
-        if coluna_var in df_unificado.columns and not df_unificado[coluna_var].empty:
-            # Identifica o maior valor de radiação global
-            idx_max = df_unificado[coluna_var].idxmax()
-            max_rad_data = df_unificado.loc[idx_max]
+    col1, col2 = st.columns(2)
 
-            # Identifica o menor valor de radiação global (ignorando NaN)
-            idx_min = df_unificado[coluna_var].idxmin()
-            min_rad_data = df_unificado.loc[idx_min]
-
-            st.markdown(f"""
-            ### Maiores Valores de Radiação Global
-
-            O maior valor de Radiação Global registrado no período de 2020 a 2025 foi de **{max_rad_data[coluna_var]:.2f} Kj/m²**.
-            * **Região:** {max_rad_data['Regiao']}
-            * **Mês:** {max_rad_data['Mês']}
-            * **Ano:** {max_rad_data['Ano']}
-            """)
-
-            st.markdown(f"""
-            ### Menores Valores de Radiação Global
-
-            O menor valor de Radiação Global registrado no período de 2020 a 2025 foi de **{min_rad_data[coluna_var]:.2f} Kj/m²**.
-            * **Região:** {min_rad_data['Regiao']}
-            * **Mês:** {min_rad_data['Mês']}
-            * **Ano:** {min_rad_data['Ano']}
-            """)
-
-            st.markdown("""
-            ### Relevância dos Extremos de Radiação Global
-
-            A identificação de picos e vales na radiação global é crucial por diversas razões:
-
-            * **Geração de Energia Solar:** Períodos de alta radiação são ideais para a geração de energia fotovoltaica, indicando regiões e épocas do ano de maior potencial para projetos solares. Valores baixos, por outro lado, sinalizam menor eficiência.
-            * **Agricultura:** A radiação solar é vital para a fotossíntese. Picos de radiação, especialmente se combinados com temperaturas elevadas e baixa umidade, podem causar estresse térmico e hídrico nas plantas. Períodos de baixa radiação podem limitar o crescimento e a produtividade das culturas.
-            * **Clima e Qualidade do Ar:** A radiação afeta a temperatura do solo e do ar, influenciando a dinâmica atmosférica. Baixos níveis de radiação podem estar associados a maior nebulosidade ou poluição, enquanto altos níveis (especialmente em regiões urbanas) podem intensificar fenômenos como ilhas de calor e a formação de ozônio troposférico.
-            * **Recursos Hídricos:** Alta radiação contribui para a evaporação da água, impactando o nível de rios e reservatórios, especialmente em períodos de seca.
-
-            Esses dados fornecem insights valiosos para o planejamento energético, agrícola e ambiental, permitindo a otimização de recursos e a mitigação de riscos climáticos.
-            """)
+    with col1:
+        st.subheader("Hipótese 1: Análise de Tendência Anual")
+        media_anual = df_valores_anuais.mean(axis=0).dropna()
+        
+        if len(media_anual) > 1:
+            anos_validos = media_anual.index.astype(int)
+            valores_validos = media_anual.values
+            slope, intercept = np.polyfit(anos_validos, valores_validos, 1)
+            trend_line = slope * anos_validos + intercept
+            
+            fig_trend, ax_trend = plt.subplots(figsize=(6, 4))
+            ax_trend.plot(anos_validos, valores_validos, marker='o', linestyle='-', label='Média Anual Observada')
+            ax_trend.plot(anos_validos, trend_line, linestyle='--', color='red', label='Linha de Tendência')
+            ax_trend.set_title(f'Tendência Anual de {nome_var}')
+            ax_trend.set_xlabel('Ano')
+            ax_trend.set_ylabel(f'Média Anual ({unidade_var})')
+            ax_trend.grid(True, linestyle='--', alpha=0.5)
+            ax_trend.legend()
+            st.pyplot(fig_trend)
+            
+            limiar = 0.1
+            if nome_var == 'Temperatura Média (°C)': limiar = 0.05
+            
+            # <-- ALTERAÇÃO: Texto da análise atualizado
+            if slope > limiar:
+                tendencia_texto = f"**Tendência de Aumento:** Os dados agregados para **{titulo_regioes}** sugerem uma tendência de **aumento** para a {nome_var.lower()}."
+            elif slope < -limiar:
+                tendencia_texto = f"**Tendência de Diminuição:** Os dados agregados para **{titulo_regioes}** sugerem uma tendência de **diminuição** para a {nome_var.lower()}."
+            else:
+                tendencia_texto = f"**Tendência de Estabilidade:** A linha de tendência para **{titulo_regioes}** é quase plana, sugerindo **relativa estabilidade** na média anual."
+            
+            st.markdown(tendencia_texto)
         else:
-            st.write("Dados de Radiação Global não disponíveis ou insuficientes para análise de extremos.")
+            st.info("Dados insuficientes (menos de 2 anos) para calcular uma tendência.")
 
+    with col2:
+        st.subheader("Hipótese 2: Análise de Variabilidade")
+        desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean().dropna()
+
+        if not desvios_abs_anuais.empty:
+            ano_mais_atipico = desvios_abs_anuais.idxmax()
+            maior_desvio = desvios_abs_anuais.max()
+            
+            # <-- ALTERAÇÃO: Texto da análise atualizado
+            st.markdown(f"Para a(s) região(ões) **{titulo_regioes}**, e a variável **{nome_var}**: ")
+            st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo), com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica do período.")
+            
+            st.markdown("**Hipótese de Variabilidade:** Se os anos mais recentes aparecem com os maiores desvios, isso pode sugerir que **o clima na(s) região(ões) selecionada(s) está se tornando mais variável**.")
+            st.write("**Ranking de Anos por Desvio (Atipicidade):**")
+            desvios_df = pd.DataFrame(desvios_abs_anuais, columns=['Desvio Médio Absoluto'])
+            st.dataframe(desvios_df.sort_values(by='Desvio Médio Absoluto', ascending=False).style.format("{:.2f}"))
+        else:
+            st.info("Não há dados suficientes para realizar a análise de variabilidade anual.")
+
+# --- TRATAMENTO GERAL DE ERROS ---
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e o nome do arquivo.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média.")
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada.")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
