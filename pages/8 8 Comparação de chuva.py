@@ -123,3 +123,16 @@ with col2:
     """)
 
 with st.expander("**Clique aqui para ver a justificação climatológica detalhada**"):
+    st.markdown("""
+        ### 🌳 **Região Norte: O Domínio Equatorial**
+        - **Causa Principal:** A principal fonte de chuva é a **Zona de Convergência Intertropical (ZCIT)**, uma faixa de nuvens e umidade que circunda o globo perto da linha do Equador.
+        - **Pico de Chuva (Verão/Outono):** A ZCIT migra para o sul durante o verão do Hemisfério Sul (dezembro a março), causando chuvas intensas e volumosas na maior parte da Amazônia. Esse período é frequentemente chamado de "inverno amazônico".
+        - **Período de Seca (Inverno/Primavera):** Quando a ZCIT se afasta para o norte, a região experimenta uma estação mais seca, especialmente entre junho e setembro.
+        - **Evapotranspiração:** A própria Floresta Amazônica libera imensas quantidades de umidade na atmosfera (os "rios voadores"), o que alimenta ainda mais as chuvas locais.
+
+        ### 🐧 **Região Sul: A Influência Polar**
+        - **Causa Principal:** O regime de chuvas é dominado pela passagem de **sistemas frontais (frentes frias)**, que trazem massas de ar polar do sul.
+        - **Distribuição Anual:** Ao contrário do Norte, a chuva no Sul é **melhor distribuída ao longo do ano**. Não há uma estação seca tão definida.
+        - **Picos:** Embora chova o ano todo, os maiores volumes podem se concentrar na primavera e no verão devido ao encontro do ar quente e úmido com as frentes frias, gerando tempestades. O inverno também é úmido, mas com chuvas geralmente mais fracas e contínuas (chuviscos).
+        - **Variabilidade:** A região pode sofrer tanto com secas (associadas a bloqueios atmosféricos) quanto com chuvas extremas, influenciadas por ciclones extratropicais.
+    """)
