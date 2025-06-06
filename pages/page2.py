@@ -2,36 +2,68 @@ import pandas as pd
 import streamlit as st
 import os
 import matplotlib.pyplot as plt
-
-# Caminho relativo ao arquivo CSV
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+from glob import glob
 
 st.title("Análise Personalizada de Radiação Global (2020-2025)")
 
+# Função para carregar e consolidar os dados
+def carregar_dados():
+    # Padrão para encontrar os arquivos
+    padrao_arquivos = os.path.join("CIADM1A", "medias", "medias_mensais_geo_temp_media_*.csv")
+    arquivos = glob(padrao_arquivos)
+    
+    if not arquivos:
+        raise FileNotFoundError(f"Nenhum arquivo encontrado com o padrão: {padrao_arquivos}")
+    
+    dfs = []
+    for arquivo in arquivos:
+        try:
+            # Extrair o ano do nome do arquivo
+            ano = int(arquivo.split('_')[-1].replace('.csv', ''))
+            df = pd.read_csv(arquivo)
+            df['Ano'] = ano  # Adiciona a coluna de ano
+            dfs.append(df)
+        except Exception as e:
+            st.warning(f"Erro ao processar arquivo {arquivo}: {str(e)}")
+            continue
+    
+    if not dfs:
+        raise ValueError("Nenhum dado válido foi carregado dos arquivos.")
+    
+    df_unificado = pd.concat(dfs, ignore_index=True)
+    
+    # Verificar e limpar dados
+    df_unificado['Ano'] = pd.to_numeric(df_unificado['Ano'], errors='coerce')
+    df_unificado = df_unificado.dropna(subset=['Ano'])
+    
+    return df_unificado
+
 try:
-    # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado)
+    # Carregar dados consolidados
+    df_unificado = carregar_dados()
 
     # Verificar se as colunas necessárias existem
     colunas_necessarias = ['Ano', 'Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']
     for coluna in colunas_necessarias:
         if coluna not in df_unificado.columns:
-            raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV.")
+            raise KeyError(f"A coluna '{coluna}' não foi encontrada nos arquivos CSV.")
 
     # Widgets de seleção na sidebar
     st.sidebar.header("Selecione os Filtros")
     
-    # Selecionar ano
+    # Obter anos únicos, ordenados e sem duplicatas
     anos_disponiveis = sorted(df_unificado['Ano'].unique())
+    
+    # Mostrar anos disponíveis na sidebar
+    st.sidebar.markdown("### Anos disponíveis no dataset:")
+    st.sidebar.write(anos_disponiveis)
+    
+    # Selecionar ano
     ano_selecionado = st.sidebar.selectbox(
         "Ano:",
         options=anos_disponiveis,
-        index=len(anos_disponiveis)-1 if 2023 not in anos_disponiveis else anos_disponiveis.index(2023)
+        index=len(anos_disponiveis)-1  # Seleciona o último ano por padrão
     )
-    
-    # Verificar anos disponíveis
-    st.sidebar.markdown("### Anos disponíveis no dataset:")
-    st.sidebar.write(anos_disponiveis)
     
     # Dicionário de meses
     meses_nome = {
@@ -189,9 +221,9 @@ try:
             - O valor exato de cada mês pode ser visto passando o mouse sobre os pontos (no modo interativo)
             """)
 
-except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a estrutura de pastas.")
+except FileNotFoundError as e:
+    st.error(f"Erro: {str(e)}")
 except KeyError as e:
-    st.error(f"Erro: A coluna {e} não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto no código e no arquivo.")
+    st.error(f"Erro: A coluna {e} não foi encontrada nos arquivos CSV. Verifique os nomes das colunas.")
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado: {str(e)}")
