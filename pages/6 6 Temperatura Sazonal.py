@@ -43,22 +43,35 @@ try:
     # Criando gráficos separados para cada região
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 6), sharey=True)
 
+    # Dicionário para armazenar informações para a análise dinâmica
+    analise_regioes = {regiao_a: {}, regiao_b: {}}
+
     for i, regiao in enumerate([regiao_a, regiao_b]):
         df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
         medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
 
-        # Identificação de meses/anos atípicos
+        # Cálculos para análise dinâmica
         media_geral = medias_mensais[coluna_temp].mean()
         desvio_padrao = medias_mensais[coluna_temp].std()
         limite_superior = media_geral + 1.5 * desvio_padrao
         limite_inferior = media_geral - 1.5 * desvio_padrao
+        
+        # Armazenar métricas para análise
+        analise_regioes[regiao]['media'] = round(media_geral, 1)
+        analise_regioes[regiao]['amplitude'] = round(medias_mensais[coluna_temp].max() - medias_mensais[coluna_temp].min(), 1)
+        analise_regioes[regiao]['mes_mais_quente'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmax(), 'Mês']
+        analise_regioes[regiao]['mes_mais_frio'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmin(), 'Mês']
+        analise_regioes[regiao]['num_atipicos'] = len(medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | 
+                                                                  (medias_mensais[coluna_temp] < limite_inferior)])
 
-        meses_atipicos = medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)]
+        meses_atipicos = medias_mensais[(medias_mensais[coluna_temp] > limite_superior) | 
+                                      (medias_mensais[coluna_temp] < limite_inferior)]
 
         for ano in anos:
             df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_temp].mean()
             if not df_ano_regiao.empty:
-                axes[i].plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=f'{ano}')
+                axes[i].plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', 
+                           color=cores_anos[ano], label=f'{ano}')
 
         axes[i].set_title(f"Temperatura Média - {regiao} (2020-2025)")
         axes[i].set_xlabel("Mês")
@@ -75,21 +88,35 @@ try:
         st.subheader("Meses/Anos Atípicos Identificados")
         st.dataframe(meses_atipicos)
 
-    # Gerar explicação baseada nas regiões selecionadas
-    explicacoes = {
-        "Sul": "A região Sul apresenta temperaturas mais frias no inverno (junho-agosto) e verões quentes (dezembro-fevereiro), sendo influenciada por frentes frias.",
-        "Norte": "A região Norte tem pouca variação sazonal, com temperaturas geralmente elevadas durante todo o ano, mas pode sofrer influência de eventos climáticos extremos.",
-        "Centro-Oeste": "O Centro-Oeste apresenta períodos de seca e chuvas bem definidos, com temperaturas altas na estiagem e variações durante as chuvas.",
-        "Sudeste": "A região Sudeste tem maior variação ao longo do ano, com temperaturas amenas no inverno e calor intenso no verão.",
-        "Nordeste": "No Nordeste, o clima é quente e úmido ao longo do ano, mas pode haver variações associadas a fenômenos como El Niño e La Niña."
-    }
-
-    explicacao_a = explicacoes.get(regiao_a, "Sem informações sobre esta região.")
-    explicacao_b = explicacoes.get(regiao_b, "Sem informações sobre esta região.")
-
-    st.subheader("Análise dos Padrões Sazonais de Temperatura")
-    st.write(f"**Região {regiao_a}:** {explicacao_a}")
-    st.write(f"**Região {regiao_b}:** {explicacao_b}")
+    # Análise dinâmica comparativa
+    st.subheader("Análise Comparativa das Regiões Selecionadas")
+    
+    # Explicação dinâmica baseada nas regiões selecionadas
+    st.markdown(f"""
+    ### Padrões Sazonais: {regiao_a} vs {regiao_b} (2020-2025)
+    
+    **{regiao_a}**:
+    - Temperatura média anual: {analise_regioes[regiao_a]['media']}°C
+    - Amplitude térmica anual: {analise_regioes[regiao_a]['amplitude']}°C
+    - Mês tipicamente mais quente: {analise_regioes[regiao_a]['mes_mais_quente']}º mês
+    - Mês tipicamente mais frio: {analise_regioes[regiao_a]['mes_mais_frio']}º mês
+    - Número de meses atípicos identificados: {analise_regioes[regiao_a]['num_atipicos']}
+    
+    **{regiao_b}**:
+    - Temperatura média anual: {analise_regioes[regiao_b]['media']}°C
+    - Amplitude térmica anual: {analise_regioes[regiao_b]['amplitude']}°C
+    - Mês tipicamente mais quente: {analise_regioes[regiao_b]['mes_mais_quente']}º mês
+    - Mês tipicamente mais frio: {analise_regioes[regiao_b]['mes_mais_frio']}º mês
+    - Número de meses atípicos identificados: {analise_regioes[regiao_b]['num_atipicos']}
+    
+    **Comparativo**:
+    - A região {regiao_a if analise_regioes[regiao_a]['amplitude'] > analise_regioes[regiao_b]['amplitude'] else regiao_b} apresenta maior variação sazonal.
+    - A região {regiao_a if analise_regioes[regiao_a]['media'] > analise_regioes[regiao_b]['media'] else regiao_b} é geralmente mais quente em média.
+    - {regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b} apresenta mais meses com temperaturas atípicas, sugerindo maior variabilidade climática.
+    
+    **Interpretação**:
+    Os gráficos mostram que {regiao_a} e {regiao_b} apresentam padrões sazonais distintos. Enquanto {regiao_a} {f"tem uma sazonalidade mais marcada" if analise_regioes[regiao_a]['amplitude'] > 5 else "mantém temperaturas mais estáveis ao longo do ano"}, {regiao_b} {f"exibe variações mais pronunciadas entre estações" if analise_regioes[regiao_b]['amplitude'] > 5 else "mostra pouca variação entre meses"}. Os meses atípicos identificados podem estar relacionados a eventos climáticos extremos ou mudanças nos padrões atmosféricos.
+    """)
 
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
