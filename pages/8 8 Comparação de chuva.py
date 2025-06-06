@@ -4,33 +4,39 @@ import streamlit as st
 import os
 import numpy as np
 
-# --- TÍTULO FOI ALTERADO PARA REFLETIR O TEMA ---
+# --- TÍTULO PRINCIPAL FOCADO NA PERGUNTA ---
 st.title("Comparativo de Precipitação: Norte vs. Sul (2020-2025)")
+st.markdown("Análise dos regimes de chuva, picos, períodos de seca e as justificativas climáticas para as diferenças observadas.")
 
 @st.cache_data
 def carregar_dados(caminho):
     """
     Carrega os dados do arquivo CSV, valida colunas e realiza o pré-processamento.
     """
-    df = pd.read_csv(caminho)
+    try:
+        df = pd.read_csv(caminho)
+    except FileNotFoundError:
+        st.error(f"Erro Crítico: O arquivo não foi encontrado no caminho especificado: '{caminho}'. Certifique-se de que o script está no diretório correto em relação à pasta 'medias'.")
+        return None
     
     # Validação crucial para garantir que a coluna de precipitação existe
     coluna_precipitacao = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
     if coluna_precipitacao not in df.columns:
-        raise KeyError(f"A coluna necessária '{coluna_precipitacao}' não foi encontrada no arquivo CSV.")
+        st.error(f"Erro de Coluna: A coluna necessária '{coluna_precipitacao}' não foi encontrada no arquivo CSV.")
+        return None
 
-    # Garante que as colunas importantes são numéricas
+    # Garante que as colunas importantes são numéricas e remove nulos
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
     df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    
-    # Remove linhas onde os dados essenciais são nulos
     df = df.dropna(subset=['Mês', 'Ano', 'Regiao', coluna_precipitacao])
     return df
 
-try:
-    # Caminho do arquivo
-    caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
-    df_unificado = carregar_dados(caminho_arquivo_unificado)
+# --- BLOCO PRINCIPAL DO APLICATIVO ---
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+df_unificado = carregar_dados(caminho_arquivo_unificado)
+
+# A execução continua somente se o DataFrame for carregado com sucesso
+if df_unificado is not None:
 
     # --- FILTROS NA BARRA LATERAL ---
     st.sidebar.header("Filtros")
@@ -56,10 +62,10 @@ try:
         df_unificado['Ano'].isin(anos_selecionados)
     ]
     
-    # --- AJUSTE: VERIFICAÇÃO SE EXISTEM DADOS PARA PLOTAR ---
-    if df_filtrado.empty:
+    # Verifica se existem dados para plotar após a filtragem
+    if df_filtrado.empty or not any(regiao in df_filtrado['Regiao'].unique() for regiao in regioes_para_comparar):
         st.error("Não foram encontrados dados de precipitação para a combinação de filtros selecionada (Regiões Norte/Sul e anos escolhidos).")
-        st.info("Por favor, verifique se os anos selecionados contêm dados para as Regiões Norte e Sul no seu arquivo CSV.")
+        st.info("Verifique se o seu arquivo CSV contém dados para as Regiões Norte e Sul nos anos selecionados.")
         st.stop()
 
     # --- GRÁFICO COMPARATIVO ÚNICO ---
@@ -79,9 +85,9 @@ try:
             dados_volume[regiao] = f"{volume_anual:,.0f} mm/ano".replace(",",".")
 
             ax.plot(media_mensal_regiao.index, media_mensal_regiao.values, 
-                    marker='o', linestyle='-', color=cores_regiao[regiao], label=f'Região {regiao}', linewidth=2.5)
+                    marker='o', linestyle='-', color=cores_regiao[regiao], label=f'Região {regiao}', linewidth=2.5, markersize=8)
 
-    ax.set_title("Média Mensal de Precipitação (Norte vs. Sul)", fontsize=16)
+    ax.set_title("Média Mensal de Precipitação (Norte vs. Sul)", fontsize=16, fontweight='bold')
     ax.set_xlabel("Mês", fontsize=12)
     ax.set_ylabel("Precipitação Média Mensal (mm)", fontsize=12)
     ax.set_xticks(range(1, 13))
@@ -91,6 +97,7 @@ try:
     st.pyplot(fig)
     
     # --- ANÁLISE E JUSTIFICATIVA DAS DIFERENÇAS ---
+    st.markdown("---")
     st.header("Análise e Justificativa Climática")
 
     col1, col2 = st.columns(2)
@@ -109,15 +116,9 @@ try:
         st.subheader("🌬️ Região Sul")
         st.metric(label="Volume Médio Anual", value=dados_volume.get('Sul', 'N/D'))
         st.markdown("""
-        - **Regime de Chuvas:** É a região com a chuva **melhor distribuída ao longo do ano** no Brasil. Não há uma estação seca definida.
+        - **Regime de Chuvas:** É a região com a chuva **melhor distribuída ao longo do ano** no Brasil. Não há uma estação seca definida como nas outras regiões.
         - **Picos e Secas:** As chuvas são majoritariamente provocadas pela passagem de **sistemas frontais (frentes frias)**, que são frequentes durante todo o ano.
         - **Variabilidade:** O volume de chuva é muito influenciado por fenômenos como **El Niño** (que tende a aumentar as chuvas) e **La Niña** (que pode causar secas ou "estiagens" severas).
-        - **Fator Principal:** A **localização em latitude média** (clima subtropical) a torna suscetível ao encontro de massas de ar frio e quente, gerando instabilidade e chuvas constantes.
+        - **Fator Principal:** A **localização em latitude média** (clima subtropical) a torna suscetível ao encontro de massas de ar frio (polar) e quente (tropical), gerando instabilidade e chuvas constantes.
         """)
 
-except KeyError as e:
-    st.error(f"Erro de Coluna: {e}. Verifique se o nome da coluna está correto no seu arquivo CSV.")
-except FileNotFoundError:
-    st.error(f"Erro de Arquivo: O arquivo no caminho '{caminho_arquivo_unificado}' não foi encontrado.")
-except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
