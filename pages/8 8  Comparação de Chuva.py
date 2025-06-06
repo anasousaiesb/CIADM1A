@@ -12,20 +12,18 @@ st.title("Análise Climática Regional do Brasil (2020-2025)")
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
-# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS (CACHEADA) ---
 @st.cache_data
 def carregar_dados(caminho):
     """Carrega e processa o arquivo de dados climáticos."""
     df = pd.read_csv(caminho)
     
-    # Calcula a Temp_Media se as colunas de max/min existirem
+    # Pré-processamento: Calcula a Temp_Media se as colunas de max/min existirem
+    # Isso não força o uso, apenas cria a coluna se for possível, para uso posterior.
     if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
         df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] + 
                             df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
-    elif 'Temp_Media' not in df.columns:
-        # Se não há como calcular e a coluna não existe, o erro será tratado no bloco principal
-        pass
 
     # Converte colunas para numérico, tratando erros
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
@@ -33,41 +31,45 @@ def carregar_dados(caminho):
     df = df.dropna(subset=['Mês', 'Ano'])
     return df
 
-# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
+# --- BLOCO PRINCIPAL DO SCRIPT ---
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
-    
-    # Verifica se a coluna de temperatura média pôde ser criada ou se já existia
-    if 'Temp_Media' not in df_unificado.columns:
-        st.error("Erro Crítico: A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique o seu arquivo CSV.")
-        st.stop()
 
-    # --- INTERFACE DO USUÁRIO ---
+    # --- INTERFACE DO USUÁRIO NA BARRA LATERAL ---
     st.sidebar.header("Filtros de Visualização")
     
     regioes = sorted(df_unificado['Regiao'].unique())
     anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique())
-
+    
     regiao_selecionada = st.sidebar.selectbox("Selecione a Região:", regioes)
 
     variaveis = {
-        'Temperatura Média (°C)': 'Temp_Media',
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+        'Temperatura Média (°C)': 'Temp_Media',
         'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
+    # A variável 'Precipitação' agora é a primeira da lista, tornando-se o padrão.
     nome_var = st.sidebar.selectbox("Selecione a Variável:", list(variaveis.keys()))
     coluna_var = variaveis[nome_var]
+    
+    # --- VERIFICAÇÃO DINÂMICA DA COLUNA SELECIONADA (CORREÇÃO PRINCIPAL) ---
+    # O script agora verifica se a coluna ESCOLHIDA PELO USUÁRIO existe.
+    if coluna_var not in df_unificado.columns:
+        st.error(f"Erro Crítico: A coluna '{coluna_var}' necessária para a variável '{nome_var}' não foi encontrada no arquivo CSV.")
+        if nome_var == 'Temperatura Média (°C)':
+            st.info("Lembre-se: Para a temperatura, o script busca a coluna 'Temp_Media' ou tenta calculá-la a partir das colunas de temperatura máxima e mínima.")
+        st.stop() # Para a execução se a coluna específica não existe.
+
+
+    # --- LÓGICA DE PROCESSAMENTO E PLOTAGEM ---
     unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
+    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
 
     # --- VISUALIZAÇÃO PRINCIPAL (Sazonalidade Anual) ---
     st.subheader(f"Comparativo Anual de {nome_var} na Região {regiao_selecionada}")
 
-    # Cores para os anos (NOVO ESQUEMA DE CORES)
     cmap = get_cmap('plasma')
     cores_anos = {ano: cmap(i / (len(anos) -1 if len(anos) > 1 else 1)) for i, ano in enumerate(anos)}
-
-    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
 
     fig, ax = plt.subplots(figsize=(12, 6))
 
@@ -94,28 +96,22 @@ try:
     
     st.markdown("---")
 
-    # --- NOVA SEÇÃO: FORMULAÇÃO DE HIPÓTESES ---
+    # --- SEÇÃO DE ANÁLISE E HIPÓTESES ---
     st.header("Que hipóteses sobre o clima futuro podem ser formuladas com base nestes dados?")
     st.warning("🚨 **Aviso:** A análise a seguir baseia-se em dados de curto prazo (2020-2025). As 'tendências' e 'hipóteses' são exercícios exploratórios e **não devem ser consideradas previsões climáticas definitivas**, que exigem séries de dados de décadas.")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        # --- HIPÓTESE 1: ANÁLISE DE TENDÊNCIA ---
         st.subheader("Hipótese 1: Análise de Tendência Anual")
-
-        # Calcula a média anual da variável para a região
         media_anual = df_valores_anuais.mean(axis=0).dropna()
         
         if len(media_anual) > 1:
             anos_validos = media_anual.index.astype(int)
             valores_validos = media_anual.values
-
-            # Calcula a linha de tendência usando regressão linear
             slope, intercept = np.polyfit(anos_validos, valores_validos, 1)
             trend_line = slope * anos_validos + intercept
             
-            # Gráfico de Tendência
             fig_trend, ax_trend = plt.subplots(figsize=(6, 4))
             ax_trend.plot(anos_validos, valores_validos, marker='o', linestyle='-', label='Média Anual Observada')
             ax_trend.plot(anos_validos, trend_line, linestyle='--', color='red', label='Linha de Tendência')
@@ -124,30 +120,25 @@ try:
             ax_trend.set_ylabel(f'Média Anual ({unidade_var})')
             ax_trend.grid(True, linestyle='--', alpha=0.5)
             ax_trend.legend()
-            plt.tight_layout()
             st.pyplot(fig_trend)
-
-            # Interpretação da tendência
-            tendencia_texto = ""
-            if slope > 0.05: # Limiar para considerar uma tendência de aumento
-                tendencia_texto = f"**Tendência de Aumento:** Os dados sugerem uma tendência de **aumento** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode enfrentar **condições progressivamente mais quentes/chuvosas/irradiadas** se essa tendência de curto prazo continuar."
-            elif slope < -0.05: # Limiar para considerar uma tendência de queda
-                tendencia_texto = f"**Tendência de Diminuição:** Os dados sugerem uma tendência de **diminuição** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode estar se tornando **mais fria/seca/com menos radiação** se essa tendência de curto prazo persistir."
+            
+            limiar = 0.1 # Limiar para considerar uma tendência significativa
+            if nome_var == 'Temperatura Média (°C)': limiar = 0.05
+            
+            if slope > limiar:
+                tendencia_texto = f"**Tendência de Aumento:** Os dados sugerem uma tendência de **aumento** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode enfrentar **condições progressivamente mais quentes/chuvosas/irradiadas**."
+            elif slope < -limiar:
+                tendencia_texto = f"**Tendência de Diminuição:** Os dados sugerem uma tendência de **diminuição** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode estar se tornando **mais fria/seca/com menos radiação**."
             else:
-                tendencia_texto = f"**Tendência de Estabilidade:** A linha de tendência é quase plana (`{slope:.3f} {unidade_var}/ano`), sugerindo **relativa estabilidade** na média anual de {nome_var.lower()} na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas com atenção à variabilidade entre os anos."
+                tendencia_texto = f"**Tendência de Estabilidade:** A linha de tendência é quase plana (`{slope:.3f} {unidade_var}/ano`), sugerindo **relativa estabilidade** na média anual de {nome_var.lower()} durante este período."
             
             st.markdown(tendencia_texto)
-
         else:
             st.info("Dados insuficientes (menos de 2 anos) para calcular uma tendência.")
 
     with col2:
-        # --- HIPÓTESE 2: ANÁLISE DE VARIABILIDADE E EXTREMOS ---
         st.subheader("Hipótese 2: Análise de Variabilidade")
-        
-        # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
-        desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean()
-        desvios_abs_anuais = desvios_abs_anuais.dropna()
+        desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean().dropna()
 
         if not desvios_abs_anuais.empty:
             ano_mais_atipico = desvios_abs_anuais.idxmax()
@@ -156,8 +147,7 @@ try:
             st.markdown(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
             st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo), com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica do período.")
             
-            st.markdown("**Hipótese de Variabilidade:** Se os anos mais recentes (ex: 2024, 2025) aparecem consistentemente com os maiores desvios, isso pode sugerir uma hipótese de que **o clima na região está se tornando mais variável e propenso a extremos**. Anos que se desviam significativamente da média (para cima ou para baixo) podem se tornar mais frequentes.")
-
+            st.markdown("**Hipótese de Variabilidade:** Se os anos mais recentes aparecem com os maiores desvios, isso pode sugerir que **o clima na região está se tornando mais variável e propenso a extremos**.")
             st.write("**Ranking de Anos por Desvio (Atipicidade):**")
             desvios_df = pd.DataFrame(desvios_abs_anuais, columns=['Desvio Médio Absoluto'])
             st.dataframe(desvios_df.sort_values(by='Desvio Médio Absoluto', ascending=False).style.format("{:.2f}"))
