@@ -71,7 +71,8 @@ def main():
         "4. Radiação Global por Estação",
         "5. Comparação de Chuva entre Regiões Norte e Sul",
         "6. Temperatura Sazonal",
-        "7. Extremos de Radiação"
+        "7. Extremos de Radiação",
+        "8. Comparação de Chuva"
     ]
     
     for topic in topics:
@@ -122,7 +123,7 @@ def main():
     st.markdown("""
     <div style="text-align: center; color: #666666; font-size: 0.9em;">
         <p>Sistema desenvolvido para o projeto CIADM1A-CIA001-20251</p>
-        <p>Professor: Alexandre Vaz Roriz | Alunos: Ana Sophia, Igor Andrade</p>
+        <p>Professor: Alexandre Vaz Roriz | Alunos: Ana Sophia e Igor Andrade</p>
     </div>
     """, unsafe_allow_html=True)
 
