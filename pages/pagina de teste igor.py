@@ -10,7 +10,8 @@ st.set_page_config(layout="wide")
 st.title("Análise Climática Regional do Brasil (2020-2025)")
 
 # Caminho relativo ao arquivo CSV
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv
+")
 
 # --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
