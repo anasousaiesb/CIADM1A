@@ -29,7 +29,7 @@ def carregar_dados(caminho):
         st.stop()
     return df
 
-# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
+# --- CARREGAMENTO DOS DATADOS E TRATAMENTO DE ERROS ---
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
@@ -37,7 +37,7 @@ try:
     df_comparacao = df_unificado[df_unificado['Regiao'].isin(['Norte', 'Sul'])].copy()
 
     if df_comparacao.empty:
-        st.error("Não há dados para as regiões 'Norte' ou 'Sul' no arquivo carregado. Verifique a coluna 'Regiao' no seu CSV.")
+        st.error("Não há dados para as regiões 'Norte' ou 'Sul' no arquivo carregado.")
         st.stop()
 
     # Variável fixa para precipitação
@@ -45,34 +45,47 @@ try:
     nome_var = 'Precipitação Total (mm)'
     unidade_var = '(mm)'
 
+    # --- CONTROLE INTERATIVO: SELEÇÃO DE ANOS ---
+    st.sidebar.header("Filtros de Visualização")
+    todos_anos_disponiveis = sorted(df_comparacao['Ano'].unique())
+    anos_selecionados = st.sidebar.multiselect(
+        "Selecione os Anos para Comparar:",
+        options=todos_anos_disponiveis,
+        default=todos_anos_disponiveis # Seleciona todos por padrão
+    )
+
+    if not anos_selecionados:
+        st.warning("Por favor, selecione pelo menos um ano para visualizar os dados.")
+        st.stop()
+
     st.subheader(f"Comparativo Mensal de {nome_var} por Ano entre Regiões")
 
     regioes_comp = ['Norte', 'Sul']
-    anos = sorted(df_comparacao['Ano'].unique())
-
-    # Criar subplots para cada região
-    fig, axes = plt.subplots(1, 2, figsize=(20, 7), sharey=True) # Duas colunas para os gráficos de cada região
+    
+    fig, axes = plt.subplots(1, 2, figsize=(20, 7), sharey=True)
     fig.suptitle(f'Variação Mensal de {nome_var} por Ano - Regiões Norte e Sul', fontsize=18)
 
-    cmap = get_cmap('viridis') # Um novo colormap para distinção clara entre anos
+    cmap = get_cmap('viridis')
 
     for i, regiao in enumerate(regioes_comp):
         ax = axes[i]
         df_regiao = df_comparacao[df_comparacao['Regiao'] == regiao]
         
         valores_anuais_por_mes = {}
-        for ano in anos:
+        # Apenas itera sobre os anos selecionados
+        for ano in anos_selecionados:
             df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
             if not df_ano_regiao.empty:
-                # Gerar cores para os anos para cada sub-gráfico
-                cores_anos = {ano_val: cmap(j / (len(anos) -1 if len(anos) > 1 else 1)) for j, ano_val in enumerate(anos)}
+                cores_anos = {ano_val: cmap(j / (len(todos_anos_disponiveis) -1 if len(todos_anos_disponiveis) > 1 else 1)) for j, ano_val in enumerate(todos_anos_disponiveis)}
                 ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
             valores_anuais_por_mes[ano] = df_ano_regiao.values
 
-        df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
-        media_historica_mensal = df_valores_anuais.mean(axis=1)
+        # A média histórica ainda considera todos os anos disponíveis para uma base de comparação consistente
+        df_valores_anuais_para_media = pd.DataFrame({ano: df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13)).values for ano in todos_anos_disponiveis}, index=range(1, 13))
+        media_historica_mensal = df_valores_anuais_para_media.mean(axis=1)
 
-        ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='red', label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=2.5)
+
+        ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='red', label=f'Média Histórica ({int(min(todos_anos_disponiveis))}-{int(max(todos_anos_disponiveis))})', linewidth=2.5)
 
         ax.set_title(f'Região {regiao}', fontsize=14)
         ax.set_xlabel('Mês', fontsize=12)
@@ -81,28 +94,27 @@ try:
         ax.grid(True, linestyle='--', alpha=0.6)
         ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Ajusta o layout para o supertítulo
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     st.pyplot(fig)
 
     st.markdown("---")
 
-    # --- Análise de volumes anuais ---
+    # --- Análise de volumes anuais (mantém o gráfico para todos os anos para contexto) ---
     st.subheader("Volumes Anuais de Precipitação")
 
-    # Calcula a soma anual de precipitação para cada região
     prec_anual_norte = df_comparacao[df_comparacao['Regiao'] == 'Norte'].groupby('Ano')[coluna_var].sum()
     prec_anual_sul = df_comparacao[df_comparacao['Regiao'] == 'Sul'].groupby('Ano')[coluna_var].sum()
 
     df_prec_anual = pd.DataFrame({
         'Norte': prec_anual_norte,
         'Sul': prec_anual_sul
-    }).fillna(0) # Preencher NaN com 0 se um ano não tiver dados para uma região
+    }).fillna(0)
 
     st.dataframe(df_prec_anual.style.format("{:.2f}"))
 
     fig_bar, ax_bar = plt.subplots(figsize=(10, 6))
     df_prec_anual.plot(kind='bar', ax=ax_bar, colormap='Paired')
-    ax_bar.set_title(f'Precipitação Anual Total por Região ({int(min(anos))}-{int(max(anos))})', fontsize=16)
+    ax_bar.set_title(f'Precipitação Anual Total por Região ({int(min(todos_anos_disponiveis))}-{int(max(todos_anos_disponiveis))})', fontsize=16)
     ax_bar.set_xlabel('Ano', fontsize=12)
     ax_bar.set_ylabel(f'Precipitação Total {unidade_var}', fontsize=12)
     ax_bar.tick_params(axis='x', rotation=45)
