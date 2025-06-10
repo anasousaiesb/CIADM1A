@@ -4,7 +4,7 @@ import streamlit as st
 import os
 
 # Caminho relativo ao arquivo CSV dentro do projeto
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
 st.title("Padrões Sazonais de Temperatura (2020-2025) - Identificação de Meses/Anos Atípicos")
 
