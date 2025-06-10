@@ -5,7 +5,7 @@ import os
 import numpy as np # Importar numpy para cálculos numéricos
 
 # Caminho relativo ao arquivo CSV dentro do projeto
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
 st.title("Médias Mensais Regionais (2020-2025) - Visualização por Região e Variável")
 
