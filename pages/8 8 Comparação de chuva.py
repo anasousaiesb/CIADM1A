@@ -3,136 +3,171 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
+from matplotlib.cm import get_cmap
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="Norte vs. Sul: Análise de Chuvas",
-    page_icon="🌦️",
-    layout="wide"
-)
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide")
+st.title("Análise Climática Regional do Brasil (2020-2025)")
 
-# --- TÍTULO PRINCIPAL ---
-st.title("🌦️ Análise Comparativa de Precipitação: Regiões Norte vs. Sul (2020-2025)")
-st.markdown("Uma análise dos regimes de chuva, mostrando as diferenças de volume, picos e períodos de seca entre as duas regiões.")
+# Caminho relativo ao arquivo CSV
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-# --- FUNÇÃO OTIMIZADA PARA CARREGAR E PREPARAR OS DADOS ---
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
-def carregar_e_preparar_dados(caminho):
-    """
-    Carrega, filtra e prepara os dados de precipitação para as regiões Norte e Sul.
-    """
-    try:
-        df = pd.read_csv(caminho)
-        
-        # Filtrar apenas para as colunas e regiões de interesse
-        colunas_necessarias = ['Regiao', 'Ano', 'Mês', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']
-        if not all(col in df.columns for col in colunas_necessarias):
-            st.error("O arquivo CSV não contém todas as colunas necessárias. Verifique o arquivo.")
-            st.stop()
-            
-        df_filtrado = df[df['Regiao'].isin(['Norte', 'Sul'])][colunas_necessarias]
-        
-        # Garantir que os tipos de dados estão corretos
-        for col in ['Ano', 'Mês', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']:
-            df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors='coerce')
-        
-        df_filtrado.dropna(inplace=True)
-        return df_filtrado
-        
-    except FileNotFoundError:
-        st.error(f"Erro: O arquivo '{caminho}' não foi encontrado. Verifique o caminho e o nome do arquivo.")
-        st.stop()
-    except Exception as e:
-        st.error(f"Ocorreu um erro inesperado ao carregar os dados: {e}")
-        st.stop()
-
-# --- CARREGAMENTO E PROCESSAMENTO ---
-caminho_arquivo = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
-df_chuva = carregar_e_preparar_dados(caminho_arquivo)
-
-# Calcular a média mensal de precipitação para cada região (agregando todos os anos)
-media_norte = df_chuva[df_chuva['Regiao'] == 'Norte'].groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean()
-media_sul = df_chuva[df_chuva['Regiao'] == 'Sul'].groupby('Mês')['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].mean()
-
-# Garantir que todos os meses de 1 a 12 estão presentes
-media_norte = media_norte.reindex(range(1, 13), fill_value=0)
-media_sul = media_sul.reindex(range(1, 13), fill_value=0)
-
-# --- GRÁFICO COMPARATIVO ---
-st.header("Comparativo de Precipitação Mensal Média (2020-2025)")
-
-fig, ax = plt.subplots(figsize=(12, 6))
-
-# Plotar dados
-ax.plot(media_norte.index, media_norte.values, marker='o', linestyle='-', color='#0077b6', label='Região Norte')
-ax.plot(media_sul.index, media_sul.values, marker='x', linestyle='--', color='#d9534f', label='Região Sul')
-
-# Estilização do Gráfico
-ax.set_title('Média Mensal de Precipitação: Norte vs. Sul', fontsize=16, weight='bold')
-ax.set_xlabel('Mês', fontsize=12)
-ax.set_ylabel('Precipitação Média (mm)', fontsize=12)
-ax.set_xticks(range(1, 13))
-ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
-ax.grid(True, linestyle='--', alpha=0.6)
-ax.legend(title='Região', fontsize=10)
-plt.tight_layout()
-
-st.pyplot(fig)
-
-
-# --- ANÁLISE QUANTITATIVA E JUSTIFICATIVAS ---
-st.markdown("---")
-st.header("Análise Detalhada e Fatores Climáticos")
-
-col1, col2 = st.columns(2, gap="large")
-
-with col1:
-    st.subheader("📊 Resumo dos Regimes de Chuva")
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
     
-    # Calcular estatísticas
-    stats = {
-        'Região Norte': {
-            'Volume Anual (mm)': media_norte.sum(),
-            'Mês de Pico de Chuva': media_norte.idxmax(),
-            'Pico (mm)': media_norte.max(),
-            'Mês mais Seco': media_norte.idxmin(),
-            'Seca (mm)': media_norte.min()
-        },
-        'Região Sul': {
-            'Volume Anual (mm)': media_sul.sum(),
-            'Mês de Pico de Chuva': media_sul.idxmax(),
-            'Pico (mm)': media_sul.max(),
-            'Mês mais Seco': media_sul.idxmin(),
-            'Seca (mm)': media_sul.min()
-        }
+    # Calcula a Temp_Media se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] + 
+                            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
+    elif 'Temp_Media' not in df.columns:
+        # Se não há como calcular e a coluna não existe, o erro será tratado no bloco principal
+        pass
+
+    # Converte colunas para numérico, tratando erros
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano'])
+    return df
+
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
+try:
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
+    
+    # Verifica se a coluna de temperatura média pôde ser criada ou se já existia
+    if 'Temp_Media' not in df_unificado.columns:
+        st.error("Erro Crítico: A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique o seu arquivo CSV.")
+        st.stop()
+
+    # --- INTERFACE DO USUÁRIO ---
+    st.sidebar.header("Filtros de Visualização")
+    
+    regioes = sorted(df_unificado['Regiao'].unique())
+    anos = sorted(df_unificado['Ano'].unique())
+    meses = sorted(df_unificado['Mês'].unique())
+
+    regiao_selecionada = st.sidebar.selectbox("Selecione a Região:", regioes)
+
+    variaveis = {
+        'Temperatura Média (°C)': 'Temp_Media',
+        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
+    nome_var = st.sidebar.selectbox("Selecione a Variável:", list(variaveis.keys()))
+    coluna_var = variaveis[nome_var]
+    unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
+
+    # --- VISUALIZAÇÃO PRINCIPAL (Sazonalidade Anual) ---
+    st.subheader(f"Comparativo Anual de {nome_var} na Região {regiao_selecionada}")
+
+    # Cores para os anos (NOVO ESQUEMA DE CORES)
+    cmap = get_cmap('plasma')
+    cores_anos = {ano: cmap(i / (len(anos) -1 if len(anos) > 1 else 1)) for i, ano in enumerate(anos)}
+
+    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    valores_anuais_por_mes = {}
+    for ano in anos:
+        df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
+        if not df_ano_regiao.empty:
+            ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
+        valores_anuais_por_mes[ano] = df_ano_regiao.values
+
+    df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
+    media_historica_mensal = df_valores_anuais.mean(axis=1)
+
+    ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='black', label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=2.5)
+
+    ax.set_title(f'Variação Mensal de {nome_var} por Ano - {regiao_selecionada}', fontsize=16)
+    ax.set_xlabel('Mês', fontsize=12)
+    ax.set_ylabel(nome_var, fontsize=12)
+    ax.set_xticks(range(1, 13))
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    st.pyplot(fig)
     
-    df_stats = pd.DataFrame(stats).T
-    st.dataframe(df_stats.style.format({
-        "Volume Anual (mm)": "{:.1f}",
-        "Pico (mm)": "{:.1f}",
-        "Seca (mm)": "{:.1f}",
-        "Mês de Pico de Chuva": "{}",
-        "Mês mais Seco": "{}"
-    }).highlight_max(axis=0, color='#d4edda').highlight_min(axis=0, color='#f8d7da'))
+    st.markdown("---")
 
-with col2:
-    st.subheader("🌍 Por que as Diferenças Ocorrem?")
-    st.markdown("""
-    As diferenças nos regimes de chuva entre o Norte e o Sul do Brasil são causadas por sistemas climáticos distintos que atuam em cada região.
-    """)
+    # --- NOVA SEÇÃO: FORMULAÇÃO DE HIPÓTESES ---
+    st.header("Que hipóteses sobre o clima futuro podem ser formuladas com base nestes dados?")
+    st.warning("🚨 **Aviso:** A análise a seguir baseia-se em dados de curto prazo (2020-2025). As 'tendências' e 'hipóteses' são exercícios exploratórios e **não devem ser consideradas previsões climáticas definitivas**, que exigem séries de dados de décadas.")
 
-with st.expander("**Clique aqui para ver a justificação climatológica detalhada**"):
-    st.markdown("""
-        ### 🌳 **Região Norte: O Domínio Equatorial**
-        - **Causa Principal:** A principal fonte de chuva é a **Zona de Convergência Intertropical (ZCIT)**, uma faixa de nuvens e umidade que circunda o globo perto da linha do Equador.
-        - **Pico de Chuva (Verão/Outono):** A ZCIT migra para o sul durante o verão do Hemisfério Sul (dezembro a março), causando chuvas intensas e volumosas na maior parte da Amazônia. Esse período é frequentemente chamado de "inverno amazônico".
-        - **Período de Seca (Inverno/Primavera):** Quando a ZCIT se afasta para o norte, a região experimenta uma estação mais seca, especialmente entre junho e setembro.
-        - **Evapotranspiração:** A própria Floresta Amazônica libera imensas quantidades de umidade na atmosfera (os "rios voadores"), o que alimenta ainda mais as chuvas locais.
+    col1, col2 = st.columns(2)
 
-        ### 🐧 **Região Sul: A Influência Polar**
-        - **Causa Principal:** O regime de chuvas é dominado pela passagem de **sistemas frontais (frentes frias)**, que trazem massas de ar polar do sul.
-        - **Distribuição Anual:** Ao contrário do Norte, a chuva no Sul é **melhor distribuída ao longo do ano**. Não há uma estação seca tão definida.
-        - **Picos:** Embora chova o ano todo, os maiores volumes podem se concentrar na primavera e no verão devido ao encontro do ar quente e úmido com as frentes frias, gerando tempestades. O inverno também é úmido, mas com chuvas geralmente mais fracas e contínuas (chuviscos).
-        - **Variabilidade:** A região pode sofrer tanto com secas (associadas a bloqueios atmosféricos) quanto com chuvas extremas, influenciadas por ciclones extratropicais.
-    """)
+    with col1:
+        # --- HIPÓTESE 1: ANÁLISE DE TENDÊNCIA ---
+        st.subheader("Hipótese 1: Análise de Tendência Anual")
+
+        # Calcula a média anual da variável para a região
+        media_anual = df_valores_anuais.mean(axis=0).dropna()
+        
+        if len(media_anual) > 1:
+            anos_validos = media_anual.index.astype(int)
+            valores_validos = media_anual.values
+
+            # Calcula a linha de tendência usando regressão linear
+            slope, intercept = np.polyfit(anos_validos, valores_validos, 1)
+            trend_line = slope * anos_validos + intercept
+            
+            # Gráfico de Tendência
+            fig_trend, ax_trend = plt.subplots(figsize=(6, 4))
+            ax_trend.plot(anos_validos, valores_validos, marker='o', linestyle='-', label='Média Anual Observada')
+            ax_trend.plot(anos_validos, trend_line, linestyle='--', color='red', label='Linha de Tendência')
+            ax_trend.set_title(f'Tendência Anual de {nome_var}')
+            ax_trend.set_xlabel('Ano')
+            ax_trend.set_ylabel(f'Média Anual ({unidade_var})')
+            ax_trend.grid(True, linestyle='--', alpha=0.5)
+            ax_trend.legend()
+            plt.tight_layout()
+            st.pyplot(fig_trend)
+
+            # Interpretação da tendência
+            tendencia_texto = ""
+            if slope > 0.05: # Limiar para considerar uma tendência de aumento
+                tendencia_texto = f"**Tendência de Aumento:** Os dados sugerem uma tendência de **aumento** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode enfrentar **condições progressivamente mais quentes/chuvosas/irradiadas** se essa tendência de curto prazo continuar."
+            elif slope < -0.05: # Limiar para considerar uma tendência de queda
+                tendencia_texto = f"**Tendência de Diminuição:** Os dados sugerem uma tendência de **diminuição** para a {nome_var.lower()} na região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é de que a região pode estar se tornando **mais fria/seca/com menos radiação** se essa tendência de curto prazo persistir."
+            else:
+                tendencia_texto = f"**Tendência de Estabilidade:** A linha de tendência é quase plana (`{slope:.3f} {unidade_var}/ano`), sugerindo **relativa estabilidade** na média anual de {nome_var.lower()} na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas com atenção à variabilidade entre os anos."
+            
+            st.markdown(tendencia_texto)
+
+        else:
+            st.info("Dados insuficientes (menos de 2 anos) para calcular uma tendência.")
+
+    with col2:
+        # --- HIPÓTESE 2: ANÁLISE DE VARIABILIDADE E EXTREMOS ---
+        st.subheader("Hipótese 2: Análise de Variabilidade")
+        
+        # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
+        desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean()
+        desvios_abs_anuais = desvios_abs_anuais.dropna()
+
+        if not desvios_abs_anuais.empty:
+            ano_mais_atipico = desvios_abs_anuais.idxmax()
+            maior_desvio = desvios_abs_anuais.max()
+            
+            st.markdown(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
+            st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo), com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica do período.")
+            
+            st.markdown("**Hipótese de Variabilidade:** Se os anos mais recentes (ex: 2024, 2025) aparecem consistentemente com os maiores desvios, isso pode sugerir uma hipótese de que **o clima na região está se tornando mais variável e propenso a extremos**. Anos que se desviam significativamente da média (para cima ou para baixo) podem se tornar mais frequentes.")
+
+            st.write("**Ranking de Anos por Desvio (Atipicidade):**")
+            desvios_df = pd.DataFrame(desvios_abs_anuais, columns=['Desvio Médio Absoluto'])
+            st.dataframe(desvios_df.sort_values(by='Desvio Médio Absoluto', ascending=False).style.format("{:.2f}"))
+        else:
+            st.info("Não há dados suficientes para realizar a análise de variabilidade anual.")
+
+# --- TRATAMENTO GERAL DE ERROS ---
+except FileNotFoundError:
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
+except KeyError as e:
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada.")
+except Exception as e:
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
