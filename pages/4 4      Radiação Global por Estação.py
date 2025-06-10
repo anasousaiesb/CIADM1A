@@ -5,188 +5,261 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- INITIAL CONFIGURATIONS ---
+# --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(layout="wide")
-st.title("Análise de Extremos de Temperatura e Ponto de Orvalho por Estação (2020-2025)")
+st.title("Detecção de Dias Climáticos Atípicos (2020-2025)")
 
-# Relative path to the unified CSV file
+# Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-# --- FUNCTION TO LOAD AND PREPARE DATA ---
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
 def carregar_dados(caminho):
-    """Loads and processes the climate data file."""
+    """Carrega e processa o arquivo de dados climáticos, calculando médias/somas diárias."""
     df = pd.read_csv(caminho)
 
-    # Columns to convert to numeric, handling errors
+    # Converte colunas essenciais para numérico, tratando erros
     cols_to_numeric = [
-        'Ano', 'Mês', 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA DO PONTO DE ORVALHO (°C)'
+        'Ano', 'Mês', 'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)',
+        'UMIDADE RELATIVA DO AR, HORARIA (%)', 'RADIACAO GLOBAL (Kj/m²)'
     ]
     for col in cols_to_numeric:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # Drop rows with NaN in essential columns
+    
+    # Converte 'Data' para datetime, se existir
+    if 'Data' in df.columns:
+        df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
+    else:
+        st.warning("Coluna 'Data' não encontrada. A análise diária pode ser limitada.")
+        return pd.DataFrame() # Retorna vazio se a coluna Data é crucial e não está presente
+    
+    # Drop rows with NaN in essential columns for daily aggregation
     df = df.dropna(subset=[
-        'Ano', 'Mês', 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA DO PONTO DE ORVALHO (°C)'
+        'Data', 'Regiao', 'Mês', 'Ano',
+        'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)',
+        'UMIDADE RELATIVA DO AR, HORARIA (%)',
+        'RADIACAO GLOBAL (Kj/m²)'
     ])
 
-    return df
+    # Agrupar por dia, região, mês, ano para obter valores diários
+    df_diario = df.groupby(['Data', 'Regiao', 'Mês', 'Ano']).agg(
+        Temp_Media_Diaria=('TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)', 'mean'),
+        Umidade_Media_Diaria=('UMIDADE RELATIVA DO AR, HORARIA (%)', 'mean'),
+        Radiacao_Total_Diaria=('RADIACAO GLOBAL (Kj/m²)', 'sum') # Radiação é acumulada
+    ).reset_index()
 
-# --- DATA LOADING AND ERROR HANDLING ---
-try:
-    df_unificado = carregar_dados(caminho_arquivo_unificado)
+    return df_diario
 
-    # Check for essential columns
-    required_cols = [
-        'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-        'TEMPERATURA DO PONTO DE ORVALHO (°C)'
-    ]
-    for col in required_cols:
-        if col not in df_unificado.columns:
-            st.error(f"Critical Error: Column '{col}' not found in the CSV file. Please check your CSV.")
-            st.stop()
-
-    # --- APP INITIAL EXPLANATION ---
-    st.markdown("---")
-    st.header("Análise de Extremos de Temperatura e Ponto de Orvalho")
-    st.markdown("""
-        Esta aplicação explora como as **temperaturas extremas** (máxima e mínima) e a
-        **temperatura do ponto de orvalho** variam entre as regiões do Brasil durante os
-        meses mais quentes e mais frios do ano (considerando a média do período 2020-2025).
-        Compreender essas variações é vital para avaliar o potencial de estresse térmico,
-        condições de geada e conforto ambiental.
-        """)
-
-    # --- USER INTERFACE ---
-    st.sidebar.header("Filtros de Análise")
-
-    # Determine the warmest and coldest months based on overall data average
-    avg_temp_by_month = df_unificado.groupby('Mês')['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'].mean()
-    warmest_month_num = avg_temp_by_month.idxmax()
-    coldest_month_num = avg_temp_by_month.idxmin()
-
-    meses_nome = {
-        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-    }
-
-    warmest_month_name = meses_nome[warmest_month_num]
-    coldest_month_name = meses_nome[coldest_month_num]
-
-    periodo_selecionado = st.sidebar.radio(
-        "Selecione o Período de Análise:",
-        (f"Mês Mais Quente ({warmest_month_name})", f"Mês Mais Frio ({coldest_month_name})")
+# --- CÁLCULO DO SCORE DE ATIPICIDADE ---
+def calcular_score_atipicidade(df_diario_regiao):
+    """
+    Calcula um score de atipicidade para cada dia, baseado nos desvios padrão
+    das variáveis em relação à média mensal histórica daquela região.
+    """
+    df_scores = df_diario_regiao.copy()
+    
+    # Calcular médias e desvios padrão mensais históricos para cada variável
+    historico_mensal = df_scores.groupby(['Mês']).agg(
+        Temp_Media_Mensal=('Temp_Media_Diaria', 'mean'),
+        Temp_Std_Mensal=('Temp_Media_Diaria', 'std'),
+        Umidade_Media_Mensal=('Umidade_Media_Diaria', 'mean'),
+        Umidade_Std_Mensal=('Umidade_Media_Diaria', 'std'),
+        Radiacao_Media_Mensal=('Radiacao_Total_Diaria', 'mean'),
+        Radiacao_Std_Mensal=('Radiacao_Total_Diaria', 'std')
     )
+    
+    # Merge com os dados diários para cálculo do Z-score
+    df_scores = df_scores.merge(historico_mensal, on='Mês', how='left')
 
-    selected_month_num = warmest_month_num if "Mês Mais Quente" in periodo_selecionado else coldest_month_num
-    selected_month_name = warmest_month_name if "Mês Mais Quente" in periodo_selecionado else coldest_month_name
+    # Calcular Z-scores (número de desvios padrão da média)
+    # Adiciona um pequeno valor para evitar divisão por zero se std for 0
+    epsilon = 1e-6 
+    df_scores['Z_Temp'] = (df_scores['Temp_Media_Diaria'] - df_scores['Temp_Media_Mensal']) / (df_scores['Temp_Std_Mensal'] + epsilon)
+    df_scores['Z_Umidade'] = (df_scores['Umidade_Media_Diaria'] - df_scores['Umidade_Media_Mensal']) / (df_scores['Umidade_Std_Mensal'] + epsilon)
+    df_scores['Z_Radiacao'] = (df_scores['Radiacao_Total_Diaria'] - df_scores['Radiacao_Media_Mensal']) / (df_scores['Radiacao_Std_Mensal'] + epsilon)
 
+    # Calcular um score combinado de atipicidade (magnitude do desvio)
+    # Usamos o valor absoluto do Z-score e somamos
+    df_scores['Score_Atipicidade'] = df_scores['Z_Temp'].abs() + df_scores['Z_Umidade'].abs() + df_scores['Z_Radiacao'].abs()
+    
+    # Tratar NaN resultantes de std=0 ou dados faltantes (se for o caso)
+    df_scores['Score_Atipicidade'] = df_scores['Score_Atipicidade'].fillna(0) # Tratar dias onde o calculo do score falhou, talvez por falta de dados suficientes para std
+
+    return df_scores.sort_values(by='Score_Atipicidade', ascending=False)
+
+
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
+try:
+    df_diario_unificado = carregar_dados(caminho_arquivo_unificado)
+    
+    if df_diario_unificado.empty:
+        st.error("Não foi possível carregar ou processar os dados diários. Verifique seu arquivo CSV e as colunas.")
+        st.stop()
+
+    # --- EXPLICAÇÃO INICIAL DO APP ---
     st.markdown("---")
-
-    # --- CENTRAL QUESTION ---
-    st.subheader(f"Como os extremos de temperatura e o ponto de orvalho variam por região durante o {selected_month_name}?")
+    st.header("Identificando Dias Climáticos 'Incomuns' por Região")
     st.markdown("""
-        Esta seção compara as temperaturas máximas e mínimas, e a temperatura do ponto de orvalho
-        entre as diferentes regiões do Brasil para o mês selecionado.
+        Esta aplicação busca responder: **"Quais dias apresentaram condições climáticas mais 'incomuns'
+        ou 'fora do padrão' em uma dada região, considerando simultaneamente temperatura, umidade e radiação global?"**
+        
+        Um dia é considerado "incomum" se seus valores médios de temperatura e umidade,
+        e o total de radiação, se desviam significativamente da média histórica para o mês
+        e região específicos. Isso é calculado usando um "score de atipicidade" baseado
+        no número de desvios padrão da média mensal.
         """)
 
-    # Filter data for the selected month across all regions
-    df_periodo = df_unificado[df_unificado['Mês'] == selected_month_num]
+    # --- INTERFACE DO USUÁRIO ---
+    st.sidebar.header("Filtros de Análise")
+    
+    regioes = sorted(df_diario_unificado['Regiao'].unique())
+    regiao_selecionada = st.sidebar.selectbox("Selecione a Região:", regioes)
 
-    if df_periodo.empty:
-        st.warning(f"No data found for {selected_month_name}.")
+    num_dias_atipicos = st.sidebar.slider(
+        "Número de Dias Atípicos para Exibir:",
+        min_value=5, max_value=50, value=10, step=5,
+        help="Quantos dos dias mais incomuns você deseja visualizar."
+    )
+    
+    st.markdown("---")
+
+    # --- PERGUNTA CENTRAL DA ANÁLISE ---
+    st.subheader(f"Dias Climáticos Mais Atípicos na Região {regiao_selecionada}")
+    st.markdown("""
+        Esta seção apresenta os dias que mais se destacaram em termos de atipicidade,
+        com base nos desvios simultâneos de temperatura, umidade e radiação global
+        em relação às médias mensais históricas da região.
+        """)
+    
+    df_regiao = df_diario_unificado[df_diario_unificado['Regiao'] == regiao_selecionada]
+
+    if df_regiao.empty:
+        st.warning(f"Não foram encontrados dados para a Região {regiao_selecionada}.")
     else:
-        # Calculate regional averages for the selected month
-        df_analise_regional = df_periodo.groupby('Regiao').agg(
-            Temp_Maxima_Media=('TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)', 'mean'),
-            Temp_Minima_Media=('TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)', 'mean'),
-            Ponto_Orvalho_Media=('TEMPERATURA DO PONTO DE ORVALHO (°C)', 'mean')
-        ).reset_index()
+        df_dias_atipicos = calcular_score_atipicidade(df_regiao)
 
-        # Sort for better visualization
-        df_analise_regional = df_analise_regional.sort_values(by='Temp_Maxima_Media', ascending=False)
+        if df_dias_atipicos.empty or df_dias_atipicos['Score_Atipicidade'].sum() == 0:
+            st.info(f"Não foi possível calcular scores de atipicidade para a região {regiao_selecionada} (dados insuficientes ou sem variância).")
+        else:
+            top_dias_atipicos = df_dias_atipicos.head(num_dias_atipicos)
 
-        # --- GRAPH 1: REGIONAL TEMPERATURE EXTREMES ---
-        st.subheader(f"1. Temperaturas Máxima e Mínima Média por Região - {selected_month_name}")
-        st.markdown("""
-            Este gráfico de barras duplas compara a **temperatura máxima média** e a
-            **temperatura mínima média** para cada região do Brasil durante o mês selecionado.
+            st.write(f"Os **{num_dias_atipicos} dias mais atípicos** na região **{regiao_selecionada}** foram:")
             
-            **Propósito:** Visualizar as regiões mais quentes e mais frias, e a amplitude térmica
-            média entre elas no período.
+            # Formatar para exibição
+            top_dias_display = top_dias_atipicos[[
+                'Data', 'Score_Atipicidade', 'Temp_Media_Diaria',
+                'Umidade_Media_Diaria', 'Radiacao_Total_Diaria',
+                'Z_Temp', 'Z_Umidade', 'Z_Radiacao'
+            ]].copy()
+            top_dias_display['Data'] = top_dias_display['Data'].dt.strftime('%d/%m/%Y')
+            top_dias_display = top_dias_display.rename(columns={
+                'Data': 'Data',
+                'Score_Atipicidade': 'Score Atipicidade',
+                'Temp_Media_Diaria': 'Temp. Média (°C)',
+                'Umidade_Media_Diaria': 'Umid. Média (%)',
+                'Radiacao_Total_Diaria': 'Rad. Total (Kj/m²)',
+                'Z_Temp': 'Z-Score Temp',
+                'Z_Umidade': 'Z-Score Umid.',
+                'Z_Radiacao': 'Z-Score Rad.'
+            })
+            st.dataframe(top_dias_display.set_index('Data').style.format({
+                'Score Atipicidade': "{:.2f}",
+                'Temp. Média (°C)': "{:.1f}",
+                'Umid. Média (%)': "{:.1f}",
+                'Rad. Total (Kj/m²)': "{:.0f}",
+                'Z-Score Temp': "{:.2f}",
+                'Z-Score Umid.': "{:.2f}",
+                'Z-Score Rad.': "{:.2f}"
+            }))
+
+            st.markdown("---")
+
+            # --- GRÁFICO: DISTRIBUIÇÃO DOS SCORES DE ATIPICIDADE ---
+            st.subheader(f"Distribuição dos Scores de Atipicidade - Região {regiao_selecionada}")
+            st.markdown("""
+                Este histograma mostra a distribuição dos scores de atipicidade para todos os dias
+                na região selecionada. A maioria dos dias tende a ter scores baixos (próximos da média),
+                enquanto os "dias incomuns" são representados pelas barras mais à direita do gráfico.
+                
+                **Propósito:** Visualizar quão frequentemente a região experimenta dias "normais" versus "atípicos".
+                
+                **Interpretação:** Uma cauda longa para a direita indica que a região tem alguns dias
+                muito incomuns. Isso pode ser útil para entender a variabilidade climática extrema
+                da região.
+                """)
             
-            **Interpretação:** Regiões com barras azuis (máxima) mais altas e barras laranjas (mínima)
-            também mais altas são mais quentes. A diferença entre as barras azul e laranja indica a
-            amplitude térmica diária média.
-            """)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.hist(df_dias_atipicos['Score_Atipicidade'], bins=30, color='darkcyan', edgecolor='black')
+            ax.set_xlabel('Score de Atipicidade', fontsize=12)
+            ax.set_ylabel('Número de Dias', fontsize=12)
+            ax.set_title(f'Distribuição dos Scores de Atipicidade - Região {regiao_selecionada}', fontsize=16)
+            ax.grid(axis='y', linestyle='--', alpha=0.6)
+            plt.tight_layout()
+            st.pyplot(fig)
 
-        fig, ax = plt.subplots(figsize=(12, 7))
-        bar_width = 0.35
-        index = np.arange(len(df_analise_regional['Regiao']))
+            st.markdown("---")
 
-        bars1 = ax.bar(index - bar_width/2, df_analise_regional['Temp_Maxima_Media'], bar_width, label='Temp. Máxima Média (°C)', color='orangered')
-        bars2 = ax.bar(index + bar_width/2, df_analise_regional['Temp_Minima_Media'], bar_width, label='Temp. Mínima Média (°C)', color='skyblue')
+            # --- GRÁFICO 2: DETALHES DO DIA MAIS ATÍPICO ---
+            if not top_dias_atipicos.empty:
+                dia_mais_atipico = top_dias_atipicos.iloc[0]
+                mes_do_dia_mais_atipico = dia_mais_atipico['Mês']
 
-        ax.set_xlabel('Região', fontsize=12)
-        ax.set_ylabel('Temperatura Média (°C)', fontsize=12)
-        ax.set_title(f'Temperaturas Média Máxima e Média Mínima por Região - {selected_month_name}', fontsize=16)
-        ax.set_xticks(index)
-        ax.set_xticklabels(df_analise_regional['Regiao'], rotation=45, ha='right')
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-        ax.legend()
-        plt.tight_layout()
-        st.pyplot(fig)
+                st.subheader(f"Análise Detalhada do Dia Mais Atípico: {dia_mais_atipico['Data']} (Score: {dia_mais_atipico['Score Atipicidade']:.2f})")
+                st.markdown(f"""
+                    Este gráfico de barras compara os valores do dia mais atípico (**{dia_mais_atipico['Data']}**)
+                    com a média mensal histórica (para o mês {meses_nome[mes_do_dia_mais_atipico]})
+                    na região **{regiao_selecionada}**.
+                    
+                    **Propósito:** Entender *por que* esse dia foi considerado atípico, visualizando
+                    quais variáveis (temperatura, umidade, radiação) se desviaram mais.
+                    
+                    **Interpretação:** Barras que se estendem muito acima ou abaixo da média indicam
+                    a principal causa da atipicidade. Por exemplo, um dia com temperatura muito alta
+                    e umidade muito baixa, ambos desviando da média, terá um score alto.
+                    """)
+                
+                # Dados para o gráfico comparativo
+                medias_mes = df_dias_atipicos[df_dias_atipicos['Mês'] == mes_do_dia_mais_atipico].iloc[0][
+                    ['Temp_Media_Mensal', 'Umidade_Media_Mensal', 'Radiacao_Media_Mensal']
+                ]
+                
+                valores_dia_atipico = dia_mais_atipico[[
+                    'Temp. Média (°C)', 'Umid. Média (%)', 'Rad. Total (Kj/m²)'
+                ]].values
 
-        st.markdown("---")
+                labels = ['Temperatura Média (°C)', 'Umidade Média (%)', 'Radiação Total (Kj/m²)']
+                x = np.arange(len(labels))
+                width = 0.35
 
-        # --- GRAPH 2: REGIONAL DEW POINT TEMPERATURE ---
-        st.subheader(f"2. Temperatura do Ponto de Orvalho Média por Região - {selected_month_name}")
-        st.markdown("""
-            Este gráfico de barras exibe a **temperatura média do ponto de orvalho** para cada região
-            do Brasil durante o mês selecionado.
-            
-            **Propósito:** Avaliar a umidade absoluta do ar e o potencial para sensações de "ar abafado"
-            (ponto de orvalho alto) ou "ar seco" (ponto de orvalho baixo), além do risco de formação de geada
-            em certas condições (ponto de orvalho próximo ou abaixo de zero).
-            
-            **Interpretação:**
-            * **Ponto de Orvalho Alto (ex: > 20°C):** Indica muito vapor de água no ar, associado a calor
-                e sensação de abafamento, comum em regiões tropicais úmidas. Potencial de calor estressante.
-            * **Ponto de Orvalho Baixo (ex: < 10°C):** Indica ar seco.
-            * **Ponto de Orvalho Próximo ou Abaixo de 0°C:** Em combinação com temperaturas do ar próximas a 0°C,
-                aumenta o risco de geada.
-            """)
-        
-        df_analise_regional_dew = df_analise_regional.sort_values(by='Ponto_Orvalho_Media', ascending=False)
+                fig3, ax3 = plt.subplots(figsize=(10, 6))
+                
+                bars_dia = ax3.bar(x - width/2, valores_dia_atipico, width, label='Valor do Dia Atípico', color='darkorange')
+                bars_media = ax3.bar(x + width/2, medias_mes.values, width, label=f'Média Mensal Histórica ({meses_nome[mes_do_dia_mais_atipico]})', color='gray', alpha=0.7)
 
-        fig2, ax2 = plt.subplots(figsize=(12, 7))
-        bars_dew = ax2.bar(df_analise_regional_dew['Regiao'], df_analise_regional_dew['Ponto_Orvalho_Media'], color='forestgreen')
+                ax3.set_ylabel('Valor', fontsize=12)
+                ax3.set_title(f'Comparativo: Dia Atípico vs. Média Mensal - {dia_mais_atipico["Data"]}', fontsize=16)
+                ax3.set_xticks(x)
+                ax3.set_xticklabels(labels, rotation=15, ha='right')
+                ax3.legend()
+                ax3.grid(axis='y', linestyle='--', alpha=0.6)
 
-        ax2.set_xlabel('Região', fontsize=12)
-        ax2.set_ylabel('Temperatura do Ponto de Orvalho Média (°C)', fontsize=12)
-        ax2.set_title(f'Temperatura Média do Ponto de Orvalho por Região - {selected_month_name}', fontsize=16)
-        ax2.tick_params(axis='x', rotation=45, ha='right')
-        ax2.grid(axis='y', linestyle='--', alpha=0.7)
+                # Adicionar valores nas barras
+                for bar in bars_dia:
+                    height = bar.get_height()
+                    ax3.text(bar.get_x() + bar.get_width()/2, height, f'{height:.1f}', ha='center', va='bottom', fontsize=9)
+                for bar in bars_media:
+                    height = bar.get_height()
+                    ax3.text(bar.get_x() + bar.get_width()/2, height, f'{height:.1f}', ha='center', va='bottom', fontsize=9, color='black', alpha=0.7)
 
-        # Add values on top of bars
-        for bar in bars_dew:
-            height = bar.get_height()
-            ax2.text(bar.get_x() + bar.get_width()/2, height + 0.5,
-                     f'{height:.1f}', ha='center', va='bottom', fontsize=9, color='black')
-
-        plt.tight_layout()
-        st.pyplot(fig2)
+                plt.tight_layout()
+                st.pyplot(fig3)
+            else:
+                st.info("Não foi possível detalhar o dia mais atípico.")
 
 except FileNotFoundError:
-    st.error(f"Error: The file '{caminho_arquivo_unificado}' was not found. Please check the path and file location.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
-    st.error(f"Error: Column '{e}' not found or could not be processed. Please verify your CSV file contains the necessary data and column names are correct.")
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada ou não pôde ser processada. Verifique se o seu arquivo contém os dados necessários e se os nomes das colunas estão corretos.")
 except Exception as e:
-    st.error(f"An unexpected error occurred during execution: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
