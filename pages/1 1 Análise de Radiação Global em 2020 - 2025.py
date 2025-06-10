@@ -3,22 +3,46 @@ import streamlit as st
 import os
 import matplotlib.pyplot as plt
 
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide")
+st.title("Análise Personalizada de Radiação Global (2020-2025)")
+
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-st.title("Análise Personalizada de Radiação Global (2020-2025)")
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+@st.cache_data
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
+    # Converte colunas para numérico, tratando erros
+    for col in ['Ano', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.dropna(subset=['Ano', 'Mês', 'RADIACAO GLOBAL (Kj/m²)'])
+    return df
 
 try:
-    # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado)
+    # Carregar os dados
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
 
     # Verificar se as colunas necessárias existem
-    colunas_necessarias = ['Ano', 'Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']
-    for coluna in colunas_necessarias:
+    colunas_necessarias_existentes = ['Ano', 'Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']
+    for coluna in colunas_necessarias_existentes:
         if coluna not in df_unificado.columns:
-            raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV.")
+            raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV. Verifique o seu arquivo.")
 
-    # Widgets de seleção na sidebar
+    # --- EXPLICAÇÃO INICIAL DO APP ---
+    st.markdown("---")
+    st.header("Entendendo a Análise de Radiação Global")
+    st.markdown("""
+        Este aplicativo Streamlit permite uma exploração detalhada da **Radiação Global média**
+        para as regiões do Brasil entre 2020 e 2025. Ao selecionar um ano, mês e região específicos,
+        você pode entender as condições de radiação solar para aquele período e local, além de
+        compará-las com médias mais amplas.
+        """)
+
+    # --- WIDGETS DE SELEÇÃO NA SIDEBAR ---
     st.sidebar.header("Selecione os Filtros")
     
     # Selecionar ano
@@ -37,8 +61,8 @@ try:
     }
     
     # Filtrar meses disponíveis para o ano selecionado
-    meses_disponiveis = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
-    meses_nome_disponiveis = [meses_nome[mes] for mes in meses_disponiveis]
+    meses_disponiveis_ano = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
+    meses_nome_disponiveis = [meses_nome[mes] for mes in meses_disponiveis_ano]
     
     # Selecionar mês
     mes_selecionado_nome = st.sidebar.selectbox(
@@ -58,8 +82,14 @@ try:
         index=0  # Sempre começa com a primeira região disponível
     )
 
+    st.markdown("---")
     # --- ANÁLISE PARA O ANO, MÊS E REGIÃO SELECIONADOS ---
-    st.subheader(f"Análise para {mes_selecionado_nome} de {ano_selecionado} - Região {regiao_selecionada}")
+    st.header(f"Análise para {mes_selecionado_nome} de {ano_selecionado} - Região {regiao_selecionada}")
+    st.subheader("Métricas Principais")
+    st.markdown("""
+        Após aplicar os filtros, esta seção exibe uma análise focada na Radiação Global
+        para o período e região escolhidos, através de métricas rápidas.
+        """)
 
     # Filtrar dados para a seleção
     df_filtrado = df_unificado[
@@ -92,22 +122,37 @@ try:
             st.metric(
                 label=f"Radiação em {mes_selecionado_nome}",
                 value=f"{media_regiao:.2f} Kj/m²",
-                delta=f"{(media_regiao - media_geral_mes):.2f} vs média geral do mês"
+                delta=f"{(media_regiao - media_geral_mes):.2f} Kj/m² vs média geral do mês"
             )
         with col2:
             st.metric(
-                label="Média Geral do Mês",
+                label="Média Geral do Mês (todas regiões)",
                 value=f"{media_geral_mes:.2f} Kj/m²"
             )
         with col3:
             st.metric(
                 label="Média Anual da Região",
                 value=f"{media_anual_regiao:.2f} Kj/m²",
-                delta=f"{(media_regiao - media_anual_regiao):.2f} vs média anual"
+                delta=f"{(media_regiao - media_anual_regiao):.2f} Kj/m² vs média anual da região"
             )
 
+        st.markdown("""
+            Essas métricas permitem identificar rapidamente se a radiação no período escolhido
+            foi acima ou abaixo da média regional e nacional.
+            """)
+
         # --- GRÁFICO DE COMPARAÇÃO REGIONAL ---
+        st.markdown("---")
         st.subheader(f"Comparação Regional para {mes_selecionado_nome}/{ano_selecionado}")
+        st.markdown("""
+            Este gráfico de barras compara a Radiação Global média entre todas as regiões do Brasil
+            para o mês e ano selecionados.
+            **Propósito:** Este gráfico permite identificar quais regiões tiveram os maiores e menores
+            níveis de radiação para aquele período específico. A região que você selecionou nos filtros
+            da barra lateral será destacada para fácil visualização.
+            **Interpretação:** Regiões com barras mais altas indicam maior incidência de radiação solar,
+            o que pode ser relevante para setores como energia solar fotovoltaica e agricultura.
+            """)
 
         # Dados para comparação
         df_comparacao = df_unificado[
@@ -118,27 +163,41 @@ try:
         fig, ax = plt.subplots(figsize=(10, 6))
         
         # Cores - destacar a região selecionada
-        cores = ['lightgray' if regiao != regiao_selecionada else 'coral' 
-                for regiao in df_comparacao.index]
+        cores = ['lightgray' if regiao != regiao_selecionada else 'coral'
+                 for regiao in df_comparacao.index]
         
         bars = ax.bar(df_comparacao.index, df_comparacao.values, color=cores)
         
         ax.set_xlabel('Região')
         ax.set_ylabel('Radiação Global Média (Kj/m²)')
         ax.set_title(f'Comparação Regional - {mes_selecionado_nome}/{ano_selecionado}')
+        ax.tick_params(axis='x', rotation=45) # Rotaciona os rótulos do eixo X para melhor visualização
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         # Adicionar valores nas barras
         for bar in bars:
             yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*yval, 
-                   f'{yval:.2f}', ha='center', va='bottom')
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*yval,
+                    f'{yval:.2f}', ha='center', va='bottom')
 
         plt.tight_layout()
         st.pyplot(fig)
 
         # --- EVOLUÇÃO MENSAL DA REGIÃO SELECIONADA ---
+        st.markdown("---")
         st.subheader(f"Evolução Mensal em {ano_selecionado} - Região {regiao_selecionada}")
+        st.markdown("""
+            Este gráfico de linha ilustra a variação da Radiação Global média mês a mês
+            para a região e o ano selecionados.
+            **Propósito:** Ajuda a visualizar a sazonalidade da radiação solar na região,
+            observando os picos e vales ao longo do ano.
+            **Destaque:** O mês que você selecionou no filtro da barra lateral será marcado
+            no gráfico com uma linha tracejada, facilitando a localização do seu ponto de
+            interesse dentro do padrão anual.
+            **Interpretação:** Padrões consistentes de alta ou baixa radiação em certos meses
+            podem influenciar o planejamento de atividades que dependem da luz solar, como o
+            agronegócio ou a otimização de sistemas solares.
+            """)
 
         df_evolucao = df_unificado[
             (df_unificado['Ano'] == ano_selecionado) &
@@ -149,10 +208,13 @@ try:
         ax2.plot(df_evolucao.index, df_evolucao.values, marker='o', color='coral')
         
         # Destacar o mês selecionado
-        ax2.axvline(x=mes_selecionado, color='gray', linestyle='--', alpha=0.5)
-        ax2.text(mes_selecionado, ax2.get_ylim()[1]*0.9, 
-                f'Mês selecionado\n{mes_selecionado_nome}', 
-                ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8))
+        if mes_selecionado in df_evolucao.index:
+            ax2.axvline(x=mes_selecionado, color='gray', linestyle='--', alpha=0.5)
+            # Ajuste da posição do texto para não sair do gráfico
+            y_text_pos = ax2.get_ylim()[1] * 0.9 if ax2.get_ylim()[1] * 0.9 > ax2.get_ylim()[0] else ax2.get_ylim()[1] * 0.7
+            ax2.text(mes_selecionado, y_text_pos,
+                     f'Mês selecionado\n{mes_selecionado_nome}',
+                     ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
 
         ax2.set_xlabel('Mês')
         ax2.set_ylabel('Radiação Global Média (Kj/m²)')
