@@ -3,175 +3,180 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
+from matplotlib.cm import get_cmap
 
-# --- ALTERAÇÃO: Título principal mais descritivo ---
-st.title("Análise Climática Interativa por Região (2020-2025)")
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide")
+st.title("Análise de Umidade Relativa do Ar (2020-2025)")
 
-# --- OTIMIZAÇÃO: Função para carregar e cachear os dados ---
+# Caminho relativo ao arquivo CSV
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
 def carregar_dados(caminho):
-    """
-    Carrega os dados do arquivo CSV, realiza cálculos iniciais e o retorna.
-    O uso de @st.cache_data acelera o app, evitando recarregar o arquivo a cada interação.
-    """
+    """Carrega e processa o arquivo de dados climáticos."""
     df = pd.read_csv(caminho)
-    # Calcula a média da temperatura se as colunas de max/min existirem
-    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
-       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
-        df['Temperatura Média (°C)'] = (
-            df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
-        ) / 2
-    # Garante que as colunas importantes são numéricas
-    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
-    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    df = df.dropna(subset=['Mês', 'Ano', 'Regiao'])
+    
+    # Converte colunas para numérico, tratando erros
+    cols_to_numeric = ['Mês', 'Ano', 'UMIDADE RELATIVA DO AR, HORARIA (%)']
+    for col in cols_to_numeric:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    df = df.dropna(subset=['Mês', 'Ano', 'UMIDADE RELATIVA DO AR, HORARIA (%)'])
     return df
 
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
-    # Caminho relativo ao arquivo CSV
-    caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
     df_unificado = carregar_dados(caminho_arquivo_unificado)
-
-    # --- MELHORIA: Filtros interativos na barra lateral ---
-    st.sidebar.header("Filtros de Visualização")
-
-    # Listas para os filtros
-    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
-    anos_disponiveis = sorted(df_unificado['Ano'].unique().astype(int))
-
-    # Filtro de Regiões
-    regioes_selecionadas = st.sidebar.multiselect(
-        "Selecione as Regiões:",
-        options=regioes_disponiveis,
-        default=regioes_disponiveis[:2]  # Seleciona as duas primeiras regiões por padrão
-    )
-
-    # Filtro de Anos
-    anos_selecionados = st.sidebar.multiselect(
-        "Selecione os Anos:",
-        options=anos_disponiveis,
-        default=anos_disponiveis # Todos os anos selecionados por padrão
-    )
     
-    # Filtro de Variável
-    variaveis = {
-        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)',
-        'Temperatura Média (°C)': 'Temperatura Média (°C)',
-        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-    }
-    nome_var = st.sidebar.selectbox(
-        "Selecione a Variável:",
-        options=list(variaveis.keys())
-    )
-    coluna_var = variaveis[nome_var]
-
-    # Validação para evitar erros se nenhuma região ou ano for selecionado
-    if not regioes_selecionadas or not anos_selecionados:
-        st.warning("Por favor, selecione pelo menos uma região e um ano para continuar.")
-        st.stop()
-    
-    # Validação da existência da coluna da variável
-    if coluna_var not in df_unificado.columns:
-        st.error(f"A coluna '{coluna_var}' para a variável '{nome_var}' não foi encontrada no arquivo.")
+    # Verifica se a coluna de umidade existe
+    if 'UMIDADE RELATIVA DO AR, HORARIA (%)' not in df_unificado.columns:
+        st.error("Erro Crítico: A coluna 'UMIDADE RELATIVA DO AR, HORARIA (%)' não foi encontrada no arquivo CSV. Verifique o seu arquivo.")
         st.stop()
 
-    # Filtra o DataFrame principal com base nas seleções do usuário
-    df_filtrado = df_unificado[
-        df_unificado['Regiao'].isin(regioes_selecionadas) &
-        df_unificado['Ano'].isin(anos_selecionados)
-    ]
-
-    # --- Gráfico Principal ---
-    st.header(f"Média Mensal de {nome_var}")
-
-    # --- ALTERAÇÃO: Cor do gráfico modificada para 'plasma' ---
-    cmap = plt.get_cmap('plasma')
-    cores_anos = {ano: cmap(i / len(anos_selecionados)) for i, ano in enumerate(anos_selecionados)}
-
-    # Criação do grid de gráficos dinamicamente
-    n_cols = 3
-    n_rows = int(np.ceil(len(regioes_selecionadas) / n_cols))
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5 * n_cols, 4 * n_rows), sharey=True, squeeze=False)
-    axes = axes.flatten()
-
-    for i, regiao in enumerate(regioes_selecionadas):
-        ax = axes[i]
-        df_regiao_filtrada = df_filtrado[df_filtrado['Regiao'] == regiao]
-        for ano in anos_selecionados:
-            df_ano_regiao = df_regiao_filtrada[df_regiao_filtrada['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
-            if not df_ano_regiao.empty:
-                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-        ax.set_title(regiao, fontsize=14)
-        ax.set_xlabel('Mês')
-        if i % n_cols == 0:
-            ax.set_ylabel(nome_var)
-        ax.set_xticks(range(1, 13))
-        ax.grid(True, linestyle='--', alpha=0.6)
-
-    # Remove eixos vazios
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Criação da legenda unificada
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, title='Ano', loc='upper right')
-    plt.tight_layout(rect=[0, 0, 0.95, 1])
-    st.pyplot(fig)
-
-    # --- Seções de Análise (só aparecem se a variável for Radiação Global) ---
-    if nome_var == 'Radiação Global (Kj/m²)':
-        st.markdown("---")
-        st.header("Análise Detalhada da Radiação Global")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # Análise de Extremos
-            st.subheader("Extremos de Radiação")
-            if not df_filtrado[coluna_var].empty:
-                idx_max = df_filtrado[coluna_var].idxmax()
-                max_rad_data = df_filtrado.loc[idx_max]
-
-                idx_min = df_filtrado[coluna_var].idxmin()
-                min_rad_data = df_filtrado.loc[idx_min]
-                
-                st.info(f"**Máximo:** **{max_rad_data[coluna_var]:.2f} Kj/m²**\n"
-                          f"({max_rad_data['Regiao']}, Mês {int(max_rad_data['Mês'])}, Ano {int(max_rad_data['Ano'])})")
-
-                st.info(f"**Mínimo:** **{min_rad_data[coluna_var]:.2f} Kj/m²**\n"
-                          f"({min_rad_data['Regiao']}, Mês {int(min_rad_data['Mês'])}, Ano {int(min_rad_data['Ano'])})")
-            else:
-                st.write("Dados insuficientes para análise de extremos.")
-
-        with col2:
-            # Análise Sazonal
-            st.subheader("Média por Estação")
-            meses_verao = [12, 1, 2]
-            meses_inverno = [6, 7, 8]
-            
-            dados_sazonais = []
-            for regiao in regioes_selecionadas:
-                df_regiao_sazonal = df_filtrado[df_filtrado['Regiao'] == regiao]
-                media_verao = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_verao)][coluna_var].mean()
-                media_inverno = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_inverno)][coluna_var].mean()
-                dados_sazonais.append({
-                    'Região': regiao,
-                    'Média Verão (Kj/m²)': media_verao,
-                    'Média Inverno (Kj/m²)': media_inverno
-                })
-            
-            df_sazonais = pd.DataFrame(dados_sazonais)
-            st.dataframe(df_sazonais.round(2))
-
-        st.markdown("""
-        ### Relevância da Radiação Solar
-        - **Energia Solar:** Picos de radiação indicam alto potencial para geração fotovoltaica.
-        - **Agricultura:** A radiação é vital para a fotossíntese, mas em excesso pode causar estresse hídrico.
-        - **Clima:** Influencia a temperatura, a evaporação de reservatórios e a formação de ilhas de calor urbanas.
+    # --- EXPLICAÇÃO INICIAL DO APP ---
+    st.markdown("---")
+    st.header("Explorando Períodos de Baixa Umidade Relativa")
+    st.markdown("""
+        Esta aplicação permite identificar e analisar os períodos de **umidade relativa do ar muito baixa**
+        em diferentes regiões do Brasil entre 2020 e 2025. Entender esses períodos é crucial para a
+        saúde humana, agricultura, prevenção de incêndios e planejamento de recursos hídricos.
         """)
 
+    # --- INTERFACE DO USUÁRIO ---
+    st.sidebar.header("Filtros de Análise")
+    
+    regioes = sorted(df_unificado['Regiao'].unique())
+    anos = sorted(df_unificado['Ano'].unique())
+    
+    regiao_selecionada = st.sidebar.selectbox("Selecione a Região:", regioes)
+
+    # NOVO: Limiar de Umidade Baixa
+    limiar_umidade = st.sidebar.slider(
+        "Defina o Limiar para Baixa Umidade (%):",
+        min_value=10, max_value=60, value=30, step=5,
+        help="Valores abaixo deste limiar serão considerados 'muito baixos'."
+    )
+    
+    st.markdown("---")
+
+    # --- VISUALIZAÇÃO 1: SAZONALIDADE DA UMIDADE ANUAL POR MÊS ---
+    st.subheader(f"1. Sazonalidade da Umidade Relativa na Região {regiao_selecionada}")
+    st.markdown(f"""
+        Este gráfico de linha mostra a variação média da **Umidade Relativa do Ar**
+        ao longo dos meses para cada ano na região **{regiao_selecionada}**.
+        A linha tracejada preta representa a média histórica mensal para o período completo (2020-2025).
+        
+        **Interpretação:** Observe como a umidade sobe e desce anualmente. Períodos de baixa umidade
+        tendem a se repetir nos mesmos meses a cada ano, revelando a sazonalidade. Fique atento
+        às linhas que caem significativamente abaixo da média histórica, indicando anos mais secos.
+        """)
+
+    cmap = get_cmap('viridis') # Um esquema de cores diferente para variedade
+    cores_anos = {ano: cmap(i / (len(anos) -1 if len(anos) > 1 else 1)) for i, ano in enumerate(anos)}
+
+    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    valores_anuais_por_mes = {}
+    for ano in anos:
+        df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')['UMIDADE RELATIVA DO AR, HORARIA (%)'].mean().reindex(range(1, 13))
+        if not df_ano_regiao.empty:
+            ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
+        valores_anuais_por_mes[ano] = df_ano_regiao.values
+
+    df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
+    media_historica_mensal = df_valores_anuais.mean(axis=1)
+
+    ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='black', label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=2.5)
+
+    ax.set_title(f'Variação Mensal da Umidade Relativa por Ano - {regiao_selecionada}', fontsize=16)
+    ax.set_xlabel('Mês', fontsize=12)
+    ax.set_ylabel('Umidade Relativa do Ar (%)', fontsize=12)
+    ax.set_xticks(range(1, 13))
+    ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+    ax.grid(True, linestyle='--', alpha=0.6)
+    ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    st.pyplot(fig)
+    
+    st.markdown("---")
+
+    # --- VISUALIZAÇÃO 2: DIAS/MESES COM UMIDADE ABAIXO DO LIMIAR ---
+    st.subheader(f"2. Frequência de Baixa Umidade (< {limiar_umidade}%) em {regiao_selecionada}")
+    st.markdown(f"""
+        Este gráfico de barras mostra o número de **meses** em cada ano onde a umidade média
+        da região **{regiao_selecionada}** caiu abaixo do limiar de **{limiar_umidade}%**.
+        
+        **Interpretação:** Barras mais altas indicam anos com maior frequência de meses secos.
+        Isso pode sinalizar um risco aumentado para a saúde (problemas respiratórios),
+        agricultura (perda de safras) e risco de incêndios florestais. Anos que se destacam
+        com muitas ocorrências merecem uma investigação mais aprofundada.
+        """)
+
+    # Filtrar dados para umidade abaixo do limiar na região selecionada
+    df_umidade_baixa_regiao = df_regiao[df_regiao['UMIDADE RELATIVA DO AR, HORARIA (%)'] < limiar_umidade]
+    contagem_meses_secos = df_umidade_baixa_regiao.groupby('Ano')['Mês'].nunique().reindex(anos, fill_value=0)
+
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    bar_colors = ['salmon' if count > 0 else 'lightgray' for count in contagem_meses_secos]
+    bars = ax2.bar(contagem_meses_secos.index.astype(int), contagem_meses_secos.values, color=bar_colors)
+
+    ax2.set_title(f'Número de Meses com Umidade Média < {limiar_umidade}% por Ano - {regiao_selecionada}', fontsize=14)
+    ax2.set_xlabel('Ano', fontsize=12)
+    ax2.set_ylabel('Número de Meses', fontsize=12)
+    ax2.set_xticks(contagem_meses_secos.index.astype(int))
+    ax2.grid(axis='y', linestyle='--', alpha=0.6)
+
+    for bar in bars:
+        height = bar.get_height()
+        if height > 0:
+            ax2.text(bar.get_x() + bar.get_width()/2, height, f'{int(height)}',
+                     ha='center', va='bottom', color='black', fontsize=10)
+
+    plt.tight_layout()
+    st.pyplot(fig2)
+
+    st.markdown("---")
+
+    # --- VISUALIZAÇÃO 3: COMPARAÇÃO REGIONAL DE UMIDADE MÍNIMA ANUAL ---
+    st.subheader(f"3. Umidade Relativa Mínima Anual por Região (2020-2025)")
+    st.markdown("""
+        Este gráfico de barras apresenta o **valor mínimo de Umidade Relativa do Ar**
+        registrado em cada região, considerando todo o período de 2020 a 2025.
+        
+        **Interpretação:** Regiões com barras mais baixas indicam que, em algum momento,
+        experimentaram condições de ar extremamente seco. Isso ajuda a identificar
+        quais partes do Brasil são mais propensas a atingir níveis críticos de umidade.
+        """)
+
+    df_umidade_min_regional = df_unificado.groupby('Regiao')['UMIDADE RELATIVA DO AR, HORARIA (%)'].min().sort_values(ascending=True)
+
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    
+    bar_colors_min = ['skyblue' if regiao != regiao_selecionada else 'darkorange' for regiao in df_umidade_min_regional.index]
+    bars3 = ax3.bar(df_umidade_min_regional.index, df_umidade_min_regional.values, color=bar_colors_min)
+
+    ax3.set_title('Umidade Relativa Mínima Registrada por Região (2020-2025)', fontsize=16)
+    ax3.set_xlabel('Região', fontsize=12)
+    ax3.set_ylabel('Umidade Relativa Mínima (%)', fontsize=12)
+    ax3.tick_params(axis='x', rotation=45)
+    ax3.grid(axis='y', linestyle='--', alpha=0.6)
+
+    for bar in bars3:
+        yval = bar.get_height()
+        ax3.text(bar.get_x() + bar.get_width()/2, yval + 1,
+                 f'{yval:.1f}%', ha='center', va='bottom', fontsize=9)
+
+    plt.tight_layout()
+    st.pyplot(fig3)
+
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
+except KeyError as e:
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários.")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
