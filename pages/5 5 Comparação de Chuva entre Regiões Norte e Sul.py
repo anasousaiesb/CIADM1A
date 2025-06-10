@@ -7,7 +7,7 @@ from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(layout="wide")
-st.title("Ciclo Hidrológico na Amazônia: Temperatura, Umidade e Precipitação (Região Norte, 2021)")
+st.title("Contrastando o Clima: Padrões de Temperatura e Precipitação entre 2020 e 2024 no Brasil")
 
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
@@ -30,14 +30,14 @@ def carregar_dados(caminho):
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
     df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
     
-    # Garante que as colunas de precipitação e umidade existem
-    required_cols = ['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)', 'UMIDADE RELATIVA DO AR, HORARIA (%)']
+    # Garante que as colunas necessárias existem
+    required_cols = ['Temp_Media', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']
     for col in required_cols:
         if col not in df.columns:
             st.error(f"Erro Crítico: A coluna '{col}' não foi encontrada no arquivo CSV. Verifique seu arquivo.")
             st.stop()
 
-    df = df.dropna(subset=['Mês', 'Ano'] + required_cols) # Dropar NaNs também das colunas necessárias
+    df = df.dropna(subset=['Mês', 'Ano'] + required_cols)
     return df
 
 # --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
@@ -49,128 +49,101 @@ try:
         st.error("Erro Crítico: A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique o seu arquivo CSV.")
         st.stop()
 
-    # --- FILTRAGEM PARA A PERGUNTA ESPECÍFICA ---
-    regiao_foco = 'Norte'
-    ano_foco = 2021
+    # --- INTERFACE DO USUÁRIO ---
+    st.sidebar.header("Escolha sua Análise:")
     
-    df_norte_2021 = df_unificado[(df_unificado['Regiao'] == regiao_foco) & (df_unificado['Ano'] == ano_foco)].copy()
+    regioes = sorted(df_unificado['Regiao'].unique())
+    
+    # Seleção de Região
+    regiao_selecionada = st.sidebar.selectbox("Selecione a Região para Comparação:", regioes)
 
-    if df_norte_2021.empty:
-        st.error(f"Não há dados para a Região {regiao_foco} no ano de {ano_foco}. Verifique o seu arquivo CSV.")
-        st.stop()
-
-    # Agrupar por mês para obter as médias mensais necessárias
-    df_mensal_norte_2021 = df_norte_2021.groupby('Mês').agg({
-        'Temp_Media': 'mean',
-        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'mean',
-        'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum' # Precipitação é soma, não média
-    }).reindex(range(1, 13)).dropna() # Garante todos os meses e remove NaNs
-    
-    if df_mensal_norte_2021.empty:
-        st.info(f"Dados insuficientes para a Região {regiao_foco} em {ano_foco} após agregação mensal.")
-        st.stop()
-
-    # Identificar o mês mais chuvoso e mais seco para o ano de 2021 na Região Norte
-    mes_chuvoso_default = df_mensal_norte_2021['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].idxmax()
-    mes_seco_default = df_mensal_norte_2021['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'].idxmin()
-
-    # --- INTERFACE DO USUÁRIO (Controles Interativos) ---
-    st.sidebar.header("Selecione os Meses para Comparação:")
-    
-    # Mapeamento de números de mês para nomes
-    nomes_meses = {
-        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
-        7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
-    }
-    
-    meses_disponiveis = sorted(df_mensal_norte_2021.index.tolist())
-    
-    mes_chuvoso_selecionado = st.sidebar.selectbox(
-        "Escolha o Mês 'Chuvoso' para Análise:",
-        options=meses_disponiveis,
-        format_func=lambda x: nomes_meses.get(x, str(x)),
-        index=meses_disponiveis.index(mes_chuvoso_default) if mes_chuvoso_default in meses_disponiveis else 0
-    )
-    
-    mes_seco_selecionado = st.sidebar.selectbox(
-        "Escolha o Mês 'Seco' para Análise:",
-        options=meses_disponiveis,
-        format_func=lambda x: nomes_meses.get(x, str(x)),
-        index=meses_disponiveis.index(mes_seco_default) if mes_seco_default in meses_disponiveis else 0
-    )
-
-    # --- VISUALIZAÇÃO INTERATIVA ---
-    st.subheader(f"Comportamento Mensal de Temperatura e Umidade na Região {regiao_foco} em {ano_foco}")
-    st.markdown(f"""
-    Explore a relação entre **temperatura média** e **umidade relativa do ar** ao longo de 2021 na Região Norte.
-    Observe como o **mês chuvoso ({nomes_meses[mes_chuvoso_selecionado]})** e o **mês seco ({nomes_meses[mes_seco_selecionado]})** selecionados se destacam nos padrões do ciclo hidrológico.
+    st.subheader(f"Comparativo Climático entre 2020 e 2024 na Região {regiao_selecionada}")
+    st.markdown("""
+    Esta seção vital permite uma análise lado a lado dos padrões de **Temperatura Média** e **Precipitação Total** em **2020** e **2024** para a região escolhida.
+    Observe atentamente as diferenças: elas podem revelar a influência de eventos climáticos anuais ou a intensidade da variabilidade climática local.
     """)
 
-    fig, ax1 = plt.subplots(figsize=(12, 7))
-
-    # Eixo Y1: Temperatura Média
-    color = 'tab:red'
-    ax1.set_xlabel('Mês')
-    ax1.set_ylabel('Temperatura Média (°C)', color=color)
-    ax1.plot(df_mensal_norte_2021.index, df_mensal_norte_2021['Temp_Media'], color=color, marker='o', linestyle='-', label='Temperatura Média')
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_xticks(range(1, 13))
-    ax1.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)], rotation=45, ha='right')
-    ax1.grid(True, linestyle='--', alpha=0.6)
-
-    # Eixo Y2: Umidade Relativa do Ar
-    ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('Umidade Relativa do Ar (%)', color=color)
-    ax2.plot(df_mensal_norte_2021.index, df_mensal_norte_2021['UMIDADE RELATIVA DO AR, HORARIA (%)'], color=color, marker='x', linestyle='--', label='Umidade Relativa')
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    # Destaque para os meses selecionados
-    # Mês Chuvoso
-    temp_chuvoso = df_mensal_norte_2021.loc[mes_chuvoso_selecionado, 'Temp_Media']
-    umid_chuvoso = df_mensal_norte_2021.loc[mes_chuvoso_selecionado, 'UMIDADE RELATIVA DO AR, HORARIA (%)']
-    prec_chuvoso = df_mensal_norte_2021.loc[mes_chuvoso_selecionado, 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']
-    ax1.plot(mes_chuvoso_selecionado, temp_chuvoso, 's', color='red', markersize=10, label=f'{nomes_meses[mes_chuvoso_selecionado]} (Chuvoso)')
-    ax2.plot(mes_chuvoso_selecionado, umid_chuvoso, 's', color='blue', markersize=10)
+    # Filtrar dados para a região selecionada e os anos 2020 e 2024
+    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
     
-    # Mês Seco
-    temp_seco = df_mensal_norte_2021.loc[mes_seco_selecionado, 'Temp_Media']
-    umid_seco = df_mensal_norte_2021.loc[mes_seco_selecionado, 'UMIDADE RELATIVA DO AR, HORARIA (%)']
-    prec_seco = df_mensal_norte_2021.loc[mes_seco_selecionado, 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)']
-    ax1.plot(mes_seco_selecionado, temp_seco, 'd', color='darkred', markersize=10, label=f'{nomes_meses[mes_seco_selecionado]} (Seco)')
-    ax2.plot(mes_seco_selecionado, umid_seco, 'd', color='darkblue', markersize=10)
+    df_2020 = df_regiao[df_regiao['Ano'] == 2020].groupby('Mês').agg({
+        'Temp_Media': 'mean',
+        'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
+    }).reindex(range(1, 13)).dropna()
 
-    # Adicionar uma legenda combinada
-    lines, labels = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines + lines2, labels + labels2, loc='upper left', bbox_to_anchor=(1.1, 1), title='Legenda')
+    df_2024 = df_regiao[df_regiao['Ano'] == 2024].groupby('Mês').agg({
+        'Temp_Media': 'mean',
+        'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
+    }).reindex(range(1, 13)).dropna()
+    
+    if df_2020.empty or df_2024.empty:
+        st.warning(f"Dados incompletos para 2020 ou 2024 na Região {regiao_selecionada}. Não é possível realizar a comparação completa.")
+        st.stop()
 
+    col1, col2 = st.columns(2)
 
-    fig.tight_layout(rect=[0, 0, 0.9, 1]) # Ajusta para acomodar a legenda
-    st.pyplot(fig)
+    # Mapeamento de números de mês para nomes
+    nomes_meses = {
+        1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+        7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+    }
+
+    with col1:
+        # --- GRÁFICO DE TEMPERATURA MÉDIA ---
+        fig_temp, ax_temp = plt.subplots(figsize=(10, 6))
+        
+        ax_temp.plot(df_2020.index, df_2020['Temp_Media'], marker='o', linestyle='-', color='purple', label='Temperatura Média 2020', linewidth=2)
+        ax_temp.plot(df_2024.index, df_2024['Temp_Media'], marker='o', linestyle='--', color='orange', label='Temperatura Média 2024', linewidth=2)
+        
+        ax_temp.set_title(f'Temperatura Média Mensal - {regiao_selecionada}', fontsize=16, fontweight='bold')
+        ax_temp.set_xlabel('Mês', fontsize=12)
+        ax_temp.set_ylabel('Temperatura Média (°C)', fontsize=12)
+        ax_temp.set_xticks(range(1, 13))
+        ax_temp.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
+        ax_temp.grid(True, linestyle=':', alpha=0.7)
+        ax_temp.legend(fontsize=10)
+        plt.tight_layout()
+        st.pyplot(fig_temp)
+
+    with col2:
+        # --- GRÁFICO DE PRECIPITAÇÃO TOTAL ---
+        fig_prec, ax_prec = plt.subplots(figsize=(10, 6))
+        
+        ax_prec.bar(df_2020.index - 0.2, df_2020['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'], width=0.4, color='darkgreen', label='Precipitação 2020')
+        ax_prec.bar(df_2024.index + 0.2, df_2024['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'], width=0.4, color='skyblue', label='Precipitação 2024')
+        
+        ax_prec.set_title(f'Precipitação Mensal Total - {regiao_selecionada}', fontsize=16, fontweight='bold')
+        ax_prec.set_xlabel('Mês', fontsize=12)
+        ax_prec.set_ylabel('Precipitação Total (mm)', fontsize=12)
+        ax_prec.set_xticks(range(1, 13))
+        ax_prec.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
+        ax_prec.grid(axis='y', linestyle=':', alpha=0.7)
+        ax_prec.legend(fontsize=10)
+        plt.tight_layout()
+        st.pyplot(fig_prec)
 
     st.markdown("---")
 
-    # --- ANÁLISE E JUSTIFICATIVA DO CICLO HIDROLÓGICO ---
-    st.header("Análise Detalhada: Temperatura, Umidade e o Ciclo Hidrológico da Amazônia")
+    # --- ANÁLISE PROFUNDA E JUSTIFICATIVA ---
+    st.header(f"2020 vs. 2024 na Região {regiao_selecionada}: Eventos Climáticos ou Variabilidade Natural?")
     st.markdown(f"""
-    Ao observar o comportamento da **Temperatura Média** e da **Umidade Relativa do Ar** na Região Norte durante 2021, especialmente nos meses de **{nomes_meses[mes_chuvoso_selecionado]}** (mês chuvoso selecionado) e **{nomes_meses[mes_seco_selecionado]}** (mês seco selecionado), podemos discernir os padrões cruciais do ciclo hidrológico amazônico:
+    Ao confrontar os padrões climáticos de **2020** e **2024** para a **Região {regiao_selecionada}**, podemos identificar insights cruciais sobre a natureza do clima local. As diferenças observadas nesses gráficos podem ser mais do que simples flutuações anuais; elas podem sinalizar a influência de eventos climáticos específicos ou, alternativamente, a manifestação de uma alta variabilidade intrínseca à região.
 
-    **No Mês Chuvoso ({nomes_meses[mes_chuvoso_selecionado]}, Precipitação: {prec_chuvoso:.2f} mm):**
-    * **Temperatura:** A temperatura média tende a ser **ligeiramente mais baixa ou estável** ({temp_chuvoso:.2f}°C) em comparação com o mês seco, devido à maior cobertura de nuvens e à energia absorvida pela evaporação da água. As chuvas frequentes ajudam a mitigar o aquecimento excessivo.
-    * **Umidade:** A **umidade relativa do ar atinge seus níveis mais altos** ({umid_chuvoso:.2f}%), refletindo a intensa evapotranspiração da floresta e a abundante disponibilidade de água na atmosfera, que resulta em chuvas. Este é o período de maior atividade do ciclo hidrológico.
+    ### Análise da Temperatura Média:
+    Observe as linhas de temperatura. Se a linha de **2024** se mantém consistentemente acima (ou abaixo) da de **2020** por vários meses, especialmente em estações-chave, isso pode indicar:
+    * **Tendência de Aquecimento/Resfriamento Anual:** Um ano **visivelmente mais quente (ou frio)** que o outro sugere uma possível aceleração de tendências de longo prazo, ou a influência de fenômenos de grande escala (como El Niño/La Niña intensos).
+    * **Eventos Extremos de Calor/Frio:** Picos ou vales acentuados em meses específicos de um ano, sem correspondência no outro, podem indicar **ondas de calor ou frio** pontuais, que são eventos climáticos de alto impacto.
 
-    **No Mês Seco ({nomes_meses[mes_seco_selecionado]}, Precipitação: {prec_seco:.2f} mm):**
-    * **Temperatura:** A temperatura média geralmente é **mais elevada** ({temp_seco:.2f}°C) e pode apresentar maiores variações diárias, pois há menos cobertura de nuvens para bloquear a radiação solar.
-    * **Umidade:** A **umidade relativa do ar é significativamente menor** ({umid_seco:.2f}%), indicando uma redução na disponibilidade de água e uma menor taxa de evapotranspiração. Embora ainda haja alguma chuva, o volume é muito reduzido em comparação com a estação chuvosa.
+    ### Análise da Precipitação Total:
+    A comparação das barras de precipitação é igualmente reveladora. Diferenças significativas nos volumes mensais entre os dois anos podem apontar para:
+    * **Secas ou Chuvas Intensas:** Um ano com volumes de precipitação drasticamente menores ou maiores que o outro (especialmente durante a estação chuvosa) sugere a ocorrência de **secas prolongadas ou períodos de chuvas torrenciais**. Esses são eventos climáticos extremos com sérias consequências.
+    * **Mudança na Sazonalidade:** Se os picos de chuva ocorreram em meses diferentes, ou se a distribuição das chuvas mudou (ex: um ano com chuva mais concentrada, outro mais dispersa), isso aponta para uma **alteração nos padrões sazonais**, uma manifestação de alta variabilidade.
 
-    **Ilustrando o Ciclo Hidrológico da Amazônia:**
+    ### Conclusão: Eventos Climáticos ou Alta Variabilidade?
+    * **Eventos Climáticos:** Se você observar diferenças **abruptas e marcantes** em um ou mais meses, ou um padrão de temperaturas ou precipitações consistentemente mais altas/baixas em um ano versus outro, isso **fortemente sugere a influência de um evento climático específico** naquele período. Estes podem ser El Niño/La Niña, bloqueios atmosféricos, ou a passagem de ciclones.
+    * **Alta Variabilidade:** Por outro lado, se as diferenças são **menos consistentes**, com um ano sendo mais quente em alguns meses e mais frio em outros, ou com variações de precipitação que não formam um padrão claro de seca/enchente generalizada, isso pode indicar uma **alta variabilidade climática intrínseca à região**. Esta variabilidade exige adaptabilidade contínua por parte dos setores econômicos e da população.
 
-    O gráfico demonstra claramente a interconexão entre estas variáveis. Durante a estação chuvosa, a **alta umidade** e a **precipitação abundante** são impulsionadas pela evapotranspiração da vasta floresta e pela atuação de sistemas como a Zona de Convergência Intertropical (ZCIT). A temperatura se mantém relativamente estável devido ao efeito de resfriamento das chuvas.
-
-    Já na estação menos chuvosa (popularmente chamada de "seca" na Amazônia, mas ainda com alguma chuva), a **radiação solar pode ser mais intensa**, resultando em temperaturas ligeiramente mais altas e uma **queda notável na umidade**, pois a disponibilidade de água para evapotranspiração diminui, reduzindo a formação de nuvens e, consequentemente, a precipitação.
-
-    Essa dinâmica é vital para a saúde da floresta e para o regime hídrico de grande parte do Brasil, mostrando como as condições atmosféricas variam drasticamente entre os períodos de chuva e de menor chuva, influenciando diretamente o ecossistema e as atividades humanas na região.
+    Ao analisar cuidadosamente os gráficos acima, você pode inferir se a Região {regiao_selecionada} vivenciou anomalias climáticas pontuais em 2020 ou 2024, ou se a sua variabilidade natural foi particularmente acentuada nesses anos.
     """)
 
 # --- TRATAMENTO GERAL DE ERROS ---
