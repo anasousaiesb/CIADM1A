@@ -18,35 +18,64 @@ def carregar_dados(caminho):
     """Carrega e processa o arquivo de dados climáticos, calculando médias/somas diárias."""
     df = pd.read_csv(caminho)
 
-    # Converte colunas essenciais para numérico, tratando erros
-    cols_to_numeric = [
-        'Ano', 'Mês', 'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)',
-        'UMIDADE RELATIVA DO AR, HORARIA (%)', 'RADIACAO GLOBAL (Kj/m²)'
-    ]
-    for col in cols_to_numeric:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
+    # --- Renomear colunas para facilitar o uso no código (opcional, mas boa prática) ---
+    # Mapeamento dos nomes de coluna do seu CSV para nomes padronizados no código
+    col_mapping = {
+        'Data': 'Data_Original', # Manter o nome original como backup se precisar
+        'Hora UTC': 'Hora_UTC',
+        'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'Precipitacao_Total_Horaria',
+        'PRESSAO ATMOSFERICA AO NIVEL DA ESTACAO, HORARIA (mB)': 'Pressao_Atmosferica_Horaria',
+        'PRESSÃO ATMOSFERICA MAX.NA HORA ANT. (AUT) (mB)': 'Pressao_Maxima_Hora_Ant',
+        'PRESSÃO ATMOSFERICA MIN. NA HORA ANT. (AUT) (mB)': 'Pressao_Minima_Hora_Ant',
+        'RADIACAO GLOBAL (Kj/m²)': 'Radiacao_Global_Horaria',
+        'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)': 'Temperatura_Bulbo_Seco_Horaria',
+        'TEMPERATURA DO PONTO DE ORVALHO (°C)': 'Temperatura_Ponto_Orvalho_Horaria',
+        'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Maxima_Hora_Ant',
+        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Minima_Hora_Ant',
+        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria',
+        'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',
+        'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria',
+        'Regiao': 'Regiao', # Já deve estar correto
+        'Mês': 'Mês', # Já deve estar correto
+        'Ano': 'Ano' # Já deve estar correto
+        # Note: Algumas colunas da sua lista não são usadas diretamente nesta análise de atipicidade
+    }
     
-    # Converte 'Data' para datetime, se existir
-    if 'Data' in df.columns:
-        df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
+    # Aplica o mapeamento, ignorando chaves que não existem no DF
+    df = df.rename(columns={k: v for k, v in col_mapping.items() if k in df.columns})
+
+    # --- Conversão de Tipos e Preparação de Dados ---
+    
+    # Combinar 'Data_Original' e 'Hora_UTC' em um único timestamp completo
+    # Primeiro, garantir que 'Data_Original' é datetime
+    if 'Data_Original' in df.columns:
+        df['Data_Original'] = pd.to_datetime(df['Data_Original'], errors='coerce')
     else:
-        st.warning("Coluna 'Data' não encontrada. A análise diária pode ser limitada.")
-        return pd.DataFrame() # Retorna vazio se a coluna Data é crucial e não está presente
-    
-    # Drop rows with NaN in essential columns for daily aggregation
+        st.error("Erro Crítico: Coluna 'Data' (originalmente 'Data') não encontrada. Esta análise depende dela.")
+        st.stop() # Parar a execução se a coluna mais crucial não existe
+
+    # Agora, combinar Data_Original com Hora_UTC para um timestamp completo
+    # Assumimos que Hora_UTC é um inteiro representando a hora do dia (0-23)
+    if 'Hora_UTC' in df.columns:
+        df['Data_Hora_Completa'] = df.apply(lambda row: row['Data_Original'].replace(hour=int(row['Hora_UTC'])), axis=1)
+    else:
+        st.warning("Coluna 'Hora UTC' não encontrada. A análise diária será baseada apenas na data, não na hora exata.")
+        df['Data_Hora_Completa'] = df['Data_Original'] # Se não tem hora, usa só a data
+
+    # Remover linhas com NaN em colunas críticas após conversão
     df = df.dropna(subset=[
-        'Data', 'Regiao', 'Mês', 'Ano',
-        'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)',
-        'UMIDADE RELATIVA DO AR, HORARIA (%)',
-        'RADIACAO GLOBAL (Kj/m²)'
+        'Data_Hora_Completa', 'Regiao', 'Mês', 'Ano',
+        'Temperatura_Bulbo_Seco_Horaria',
+        'Umidade_Relativa_Horaria',
+        'Radiacao_Global_Horaria'
     ])
 
     # Agrupar por dia, região, mês, ano para obter valores diários
-    df_diario = df.groupby(['Data', 'Regiao', 'Mês', 'Ano']).agg(
-        Temp_Media_Diaria=('TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)', 'mean'),
-        Umidade_Media_Diaria=('UMIDADE RELATIVA DO AR, HORARIA (%)', 'mean'),
-        Radiacao_Total_Diaria=('RADIACAO GLOBAL (Kj/m²)', 'sum') # Radiação é acumulada
+    # Usaremos a Data_Original para agrupar por dia calendário
+    df_diario = df.groupby(['Data_Original', 'Regiao', 'Mês', 'Ano']).agg(
+        Temp_Media_Diaria=('Temperatura_Bulbo_Seco_Horaria', 'mean'),
+        Umidade_Media_Diaria=('Umidade_Relativa_Horaria', 'mean'),
+        Radiacao_Total_Diaria=('Radiacao_Global_Horaria', 'sum') # Radiação é acumulada no dia
     ).reset_index()
 
     return df_diario
@@ -148,13 +177,13 @@ try:
             
             # Formatar para exibição
             top_dias_display = top_dias_atipicos[[
-                'Data', 'Score_Atipicidade', 'Temp_Media_Diaria',
+                'Data_Original', 'Score_Atipicidade', 'Temp_Media_Diaria',
                 'Umidade_Media_Diaria', 'Radiacao_Total_Diaria',
                 'Z_Temp', 'Z_Umidade', 'Z_Radiacao'
             ]].copy()
-            top_dias_display['Data'] = top_dias_display['Data'].dt.strftime('%d/%m/%Y')
+            top_dias_display['Data_Original'] = top_dias_display['Data_Original'].dt.strftime('%d/%m/%Y')
             top_dias_display = top_dias_display.rename(columns={
-                'Data': 'Data',
+                'Data_Original': 'Data',
                 'Score_Atipicidade': 'Score Atipicidade',
                 'Temp_Media_Diaria': 'Temp. Média (°C)',
                 'Umidade_Media_Diaria': 'Umid. Média (%)',
@@ -205,10 +234,17 @@ try:
                 dia_mais_atipico = top_dias_atipicos.iloc[0]
                 mes_do_dia_mais_atipico = dia_mais_atipico['Mês']
 
+                # Definindo um dicionário para mapear números de mês para nomes (se necessário)
+                meses_nome = {
+                    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+                }
+
                 st.subheader(f"Análise Detalhada do Dia Mais Atípico: {dia_mais_atipico['Data']} (Score: {dia_mais_atipico['Score Atipicidade']:.2f})")
                 st.markdown(f"""
                     Este gráfico de barras compara os valores do dia mais atípico (**{dia_mais_atipico['Data']}**)
-                    com a média mensal histórica (para o mês {meses_nome[mes_do_dia_mais_atipico]})
+                    com a média mensal histórica (para o mês {meses_nome.get(mes_do_dia_mais_atipico, str(mes_do_dia_mais_atipico))})
                     na região **{regiao_selecionada}**.
                     
                     **Propósito:** Entender *por que* esse dia foi considerado atípico, visualizando
@@ -220,9 +256,12 @@ try:
                     """)
                 
                 # Dados para o gráfico comparativo
-                medias_mes = df_dias_atipicos[df_dias_atipicos['Mês'] == mes_do_dia_mais_atipico].iloc[0][
-                    ['Temp_Media_Mensal', 'Umidade_Media_Mensal', 'Radiacao_Media_Mensal']
-                ]
+                # Certifique-se de que medias_mes está sendo puxado corretamente
+                # O merge em calcular_score_atipicidade já adicionou as medias_mensais
+                # Então, podemos pegá-las diretamente da linha do dia_mais_atipico
+                medias_mes = dia_mais_atipico[[
+                    'Temp_Media_Mensal', 'Umidade_Media_Mensal', 'Radiacao_Media_Mensal'
+                ]].values
                 
                 valores_dia_atipico = dia_mais_atipico[[
                     'Temp. Média (°C)', 'Umid. Média (%)', 'Rad. Total (Kj/m²)'
@@ -235,7 +274,7 @@ try:
                 fig3, ax3 = plt.subplots(figsize=(10, 6))
                 
                 bars_dia = ax3.bar(x - width/2, valores_dia_atipico, width, label='Valor do Dia Atípico', color='darkorange')
-                bars_media = ax3.bar(x + width/2, medias_mes.values, width, label=f'Média Mensal Histórica ({meses_nome[mes_do_dia_mais_atipico]})', color='gray', alpha=0.7)
+                bars_media = ax3.bar(x + width/2, medias_mes, width, label=f'Média Mensal Histórica ({meses_nome.get(mes_do_dia_mais_atipico, str(mes_do_dia_mais_atipico))})', color='gray', alpha=0.7)
 
                 ax3.set_ylabel('Valor', fontsize=12)
                 ax3.set_title(f'Comparativo: Dia Atípico vs. Média Mensal - {dia_mais_atipico["Data"]}', fontsize=16)
@@ -260,6 +299,7 @@ try:
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
-    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada ou não pôde ser processada. Verifique se o seu arquivo contém os dados necessários e se os nomes das colunas estão corretos.")
+    # Captura o KeyError específico e tenta dar uma mensagem mais amigável
+    st.error(f"Erro de Coluna: Uma das colunas esperadas não foi encontrada ou o nome está incorreto: '{e}'. Por favor, verifique se o seu arquivo CSV contém as seguintes colunas e se os nomes estão exatos (incluindo maiúsculas/minúsculas e espaços): {list(col_mapping.keys())}")
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
