@@ -6,7 +6,7 @@ import numpy as np
 
 # Caminho relativo ao arquivo CSV dentro do projeto
 # Ajuste este caminho conforme a localização do seu arquivo medias_mensais_geo_temp_media_completo.csv
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
 st.title("Padrões Sazonais Extremos: Amplitude Térmica e Variação de Precipitação")
 
