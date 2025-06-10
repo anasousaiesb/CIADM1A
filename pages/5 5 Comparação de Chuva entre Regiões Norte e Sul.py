@@ -3,158 +3,143 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
+from matplotlib.cm import get_cmap
 
-# Caminho relativo ao arquivo CSV dentro do projeto
-# Certifique-se de que o arquivo 'medias_mensais_geo_2020_2025.csv'
-# esteja no subdiretório 'medias' em relação ao script Python.
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide")
+st.title("Comparativo de Regimes de Precipitação: Regiões Norte e Sul do Brasil (2020-2025)")
+
+# Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-st.title("Médias Mensais Regionais (2020-2025) - Facetado por Região e Variável")
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+@st.cache_data
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
 
+    # Converte colunas para numérico, tratando erros
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano'])
+
+    # Garante que a coluna de precipitação existe
+    if 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' not in df.columns:
+        st.error("Erro Crítico: A coluna 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' não foi encontrada no arquivo CSV.")
+        st.stop()
+    return df
+
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
-    # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado)
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # Calcular a média da temperatura se as colunas de max/min existirem
-    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
-       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
-        df_unificado['Temperatura Média (°C)'] = (
-            df_unificado['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-            df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
-        ) / 2
-    elif 'Temperatura Média (°C)' not in df_unificado.columns:
-        pass # A coluna pode já existir ou não ser a selecionada, então não precisa de erro aqui
+    # Filtrar apenas para as regiões Norte e Sul
+    df_comparacao = df_unificado[df_unificado['Regiao'].isin(['Norte', 'Sul'])].copy()
 
-    # Certificar-se de que a coluna 'Mês' é numérica
-    df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
-    df_unificado = df_unificado.dropna(subset=['Mês'])
+    if df_comparacao.empty:
+        st.error("Não há dados para as regiões 'Norte' ou 'Sul' no arquivo carregado. Verifique a coluna 'Regiao' no seu CSV.")
+        st.stop()
 
-    # Lista de regiões e anos únicas
-    regioes = sorted(df_unificado['Regiao'].unique())
-    anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique())
+    # Variável fixa para precipitação
+    coluna_var = 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'
+    nome_var = 'Precipitação Total (mm)'
+    unidade_var = '(mm)'
 
-    # Variáveis a serem plotadas
-    variaveis = {
-        'Temperatura Média (°C)': 'Temperatura Média (°C)',
-        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
-    }
+    st.subheader(f"Comparativo Mensal de {nome_var} por Ano entre Regiões")
 
-    # Seleção interativa da variável, com 'Precipitação Total (mm)' como padrão
-    if 'Precipitação Total (mm)' in variaveis:
-        default_var_index = list(variaveis.keys()).index('Precipitação Total (mm)')
-    else:
-        default_var_index = 0
+    regioes_comp = ['Norte', 'Sul']
+    anos = sorted(df_comparacao['Ano'].unique())
 
-    nome_var = st.selectbox("Selecione a variável para visualizar:", list(variaveis.keys()), index=default_var_index)
-    coluna_var = variaveis[nome_var]
+    # Criar subplots para cada região
+    fig, axes = plt.subplots(1, 2, figsize=(20, 7), sharey=True) # Duas colunas para os gráficos de cada região
+    fig.suptitle(f'Variação Mensal de {nome_var} por Ano - Regiões Norte e Sul', fontsize=18)
 
-    # Cores para os anos
-    cmap = plt.get_cmap('viridis')
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
+    cmap = get_cmap('viridis') # Um novo colormap para distinção clara entre anos
 
-    # Gráfico facetado por região
-    st.subheader(f"Média Mensal de {nome_var} por Região (2020-2025)")
-    
-    n_cols = 3
-    n_rows = int(np.ceil(len(regioes) / n_cols))
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5*n_cols, 4*n_rows), sharey=True)
-    
-    if n_rows * n_cols > 1:
-        axes = axes.flatten()
-    elif len(regioes) == 1:
-        axes = [axes]
-
-    for i, regiao in enumerate(regioes):
+    for i, regiao in enumerate(regioes_comp):
         ax = axes[i]
-        df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
+        df_regiao = df_comparacao[df_comparacao['Regiao'] == regiao]
+        
+        valores_anuais_por_mes = {}
         for ano in anos:
-            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
+            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
             if not df_ano_regiao.empty:
-                ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-        ax.set_title(regiao)
-        ax.set_xlabel('Mês')
-        if i % n_cols == 0:
-            ax.set_ylabel(nome_var)
-        ax.set_xticks(meses)
-        ax.grid(True)
+                # Gerar cores para os anos para cada sub-gráfico
+                cores_anos = {ano_val: cmap(j / (len(anos) -1 if len(anos) > 1 else 1)) for j, ano_val in enumerate(anos)}
+                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
+            valores_anuais_por_mes[ano] = df_ano_regiao.values
 
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
+        df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
+        media_historica_mensal = df_valores_anuais.mean(axis=1)
 
-    handles, labels = [], []
-    for ax_item in axes:
-        if ax_item and ax_item.lines:
-            handles, labels = ax_item.get_legend_handles_labels()
-            if handles:
-                break
-            
-    if handles and labels:
-        fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.05, 1))
+        ax.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='red', label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=2.5)
 
-    plt.tight_layout(rect=[0, 0, 0.95, 1])
+        ax.set_title(f'Região {regiao}', fontsize=14)
+        ax.set_xlabel('Mês', fontsize=12)
+        ax.set_ylabel(nome_var, fontsize=12)
+        ax.set_xticks(range(1, 13))
+        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Ajusta o layout para o supertítulo
     st.pyplot(fig)
 
-    # --- Análise de Comparação de Chuva (Norte vs. Sul) ---
-    if nome_var == 'Precipitação Total (mm)':
-        st.subheader("Comparação de Precipitação: Regiões Norte vs. Sul (2020-2025)")
+    st.markdown("---")
 
-        # Filtra os dados para as regiões Norte e Sul
-        df_norte_sul = df_unificado[df_unificado['Regiao'].isin(['Norte', 'Sul'])]
+    # --- Análise de volumes anuais ---
+    st.subheader("Volumes Anuais de Precipitação")
 
-        # Calcula a precipitação média mensal por região para o período
-        precipitacao_media_mensal = df_norte_sul.groupby(['Regiao', 'Mês'])[coluna_var].mean().unstack(level=0)
-        
-        st.write("### Precipitação Média Mensal (mm) por Região (2020-2025)")
-        st.dataframe(precipitacao_media_mensal.round(2))
+    # Calcula a soma anual de precipitação para cada região
+    prec_anual_norte = df_comparacao[df_comparacao['Regiao'] == 'Norte'].groupby('Ano')[coluna_var].sum()
+    prec_anual_sul = df_comparacao[df_comparacao['Regiao'] == 'Sul'].groupby('Ano')[coluna_var].sum()
 
-        st.write("---")
-        st.write("### Análise de Volumes, Picos e Secas")
+    df_prec_anual = pd.DataFrame({
+        'Norte': prec_anual_norte,
+        'Sul': prec_anual_sul
+    }).fillna(0) # Preencher NaN com 0 se um ano não tiver dados para uma região
 
-        for regiao in ['Norte', 'Sul']:
-            st.markdown(f"#### Região {regiao}")
-            if regiao in precipitacao_media_mensal.columns:
-                dados_regiao = precipitacao_media_mensal[regiao]
-                
-                # Volume total (soma das médias mensais, pois a questão fala de volumes)
-                volume_total_estimado = dados_regiao.sum() * (len(anos)) # Multiplica pelo número de anos para uma estimativa total
-                st.write(f"- **Volume de Precipitação:** O volume médio anual estimado para o período é de aproximadamente **{volume_total_estimado:.2f} mm**.")
+    st.dataframe(df_prec_anual.style.format("{:.2f}"))
 
-                # Mês de pico (mais chuvoso)
-                mes_pico = dados_regiao.idxmax()
-                valor_pico = dados_regiao.max()
-                st.write(f"- **Pico de Chuva:** O mês mais chuvoso é tipicamente **{mes_pico}** (com média de **{valor_pico:.2f} mm**).")
+    fig_bar, ax_bar = plt.subplots(figsize=(10, 6))
+    df_prec_anual.plot(kind='bar', ax=ax_bar, colormap='Paired')
+    ax_bar.set_title(f'Precipitação Anual Total por Região ({int(min(anos))}-{int(max(anos))})', fontsize=16)
+    ax_bar.set_xlabel('Ano', fontsize=12)
+    ax_bar.set_ylabel(f'Precipitação Total {unidade_var}', fontsize=12)
+    ax_bar.tick_params(axis='x', rotation=45)
+    ax_bar.grid(axis='y', linestyle='--', alpha=0.6)
+    plt.tight_layout()
+    st.pyplot(fig_bar)
 
-                # Mês de seca (mais seco)
-                mes_seca = dados_regiao.idxmin()
-                valor_seca = dados_regiao.min()
-                st.write(f"- **Período de Seca:** O mês mais seco é tipicamente **{mes_seca}** (com média de **{valor_seca:.2f} mm**).")
-            else:
-                st.write(f"Dados de precipitação não disponíveis para a Região {regiao}.")
+    st.markdown("---")
 
-        st.markdown("""
-        ---
-        ### Justificativa das Diferenças Geográficas e Climáticas
+    # --- Justificativa das diferenças ---
+    st.header("Justificativa das Diferenças nos Regimes de Precipitação")
+    st.info("As justificativas a seguir são baseadas em conhecimentos geográficos e climáticos gerais do Brasil e complementam a análise dos dados. Elas ajudam a entender os padrões observados nos gráficos.")
+    st.markdown("""
+    As diferenças nos regimes de precipitação entre as Regiões Norte e Sul do Brasil são marcantes e refletem as distintas características geográficas e influências climáticas de cada área:
 
-        As diferenças nos regimes de precipitação entre as Regiões Norte e Sul do Brasil são predominantemente explicadas por suas características geográficas e a influência de sistemas climáticos distintos:
+    ### Região Norte (Clima Equatorial)
+    A Região Norte, dominada pela Floresta Amazônica, possui um clima predominantemente **Equatorial Úmido**.
+    * **Volumes Elevados:** Caracteriza-se por altos volumes de precipitação ao longo do ano, frequentemente excedendo 2.000 mm anuais.
+    * **Picos de Chuva:** Apresenta uma estação chuvosa bem definida, geralmente entre os meses de dezembro a maio (com picos entre março e abril), quando a Zona de Convergência Intertropical (ZCIT) atua com mais intensidade sobre a região.
+    * **Secas Menos Pronunciadas:** Embora exista uma estação menos chuvosa (geralmente entre junho e novembro), ela não é uma "seca" no sentido tradicional, mas sim um período com menor volume de chuvas, que ainda são significativas. A evapotranspiração da própria floresta contribui para a manutenção da umidade e das chuvas.
 
-        * **Região Norte (Clima Equatorial):**
-            * **Proximidade com o Equador:** A Região Norte está localizada em baixas latitudes, próxima à Linha do Equador. Isso a coloca sob a influência da Zona de Convergência Intertropical (ZCIT), um sistema de baixa pressão que atrai massas de ar úmidas e causa chuvas abundantes e bem distribuídas ao longo de quase todo o ano.
-            * **Floresta Amazônica:** A vasta cobertura florestal contribui para a umidade atmosférica e o ciclo hidrológico local através da evapotranspiração, realimentando a própria chuva.
-            * **Volumes e Picos:** Consequentemente, o Norte apresenta os maiores volumes anuais de precipitação do país, com picos de chuva geralmente no primeiro semestre (entre janeiro e maio), mas com pouca variação de temperatura ao longo do ano. O período "mais seco" ainda tem volumes significativos em comparação com o inverno de outras regiões.
+    ### Região Sul (Clima Subtropical)
+    A Região Sul, por sua vez, está localizada em latitudes médias e é influenciada por sistemas climáticos temperados e subtropicais, com a atuação frequente de massas de ar polares e frentes frias.
+    * **Volumes Moderados a Altos:** Os volumes anuais de precipitação são significativos, mas geralmente menores que na Região Norte, variando em torno de 1.200 a 2.000 mm.
+    * **Distribuição Mais Uniforme (com Sazonalidade):** Diferente do Norte, o Sul não possui uma estação seca tão nítida. As chuvas são mais bem distribuídas ao longo do ano, mas com tendências a picos.
+        * **Picos de Chuva:** As chuvas de verão (dezembro a março) são influenciadas por sistemas convectivos, enquanto as chuvas de inverno (junho a agosto) estão ligadas à passagem de frentes frias e ciclones extratropicais. Isso pode resultar em dois picos, ou uma distribuição mais contínua dependendo da localidade.
+        * **Eventos Extremos:** É mais propensa a eventos de chuva intensa e vendavais, especialmente durante a transição das estações.
+    * **Secas Localizadas:** Embora menos comum que no Nordeste, por exemplo, períodos de estiagem podem ocorrer, especialmente se a atuação das frentes frias ou dos sistemas convectivos for irregular.
 
-        * **Região Sul (Clima Subtropical):**
-            * **Latitude Elevada:** A Região Sul está localizada em latitudes mais altas (abaixo do Trópico de Capricórnio), o que a submete a regimes climáticos diferentes.
-            * **Frentes Frias e Ciclones Extratropicais:** A precipitação no Sul é influenciada principalmente pela passagem de frentes frias, que trazem massas de ar polares e causam chuvas bem distribuídas ao longo do ano, sem uma estação seca tão definida quanto em regiões tropicais do Brasil.
-            * **Volumes e Picos:** Embora os volumes anuais sejam menores que no Norte, a distribuição é mais regular. Os picos de chuva podem ocorrer em diferentes estações, dependendo da influência de frentes frias ou sistemas convectivos de verão, e o inverno pode ter chuvas mais intensas devido a ciclones extratropicais. As chuvas no inverno são mais frequentes e com volumes significativos, não configurando um período de seca como no Norte.
+    ### Conclusão dos Regimes:
+    Os gráficos provavelmente ilustram que a **Região Norte** mantém um padrão de elevada precipitação durante quase todo o ano, com um "inverno" amazônico (seco) menos rigoroso. Já a **Região Sul** exibe uma maior variabilidade sazonal, com chuvas bem distribuídas, mas com influências mais marcadas das estações, especialmente a passagem de frentes frias que podem trazer chuvas significativas no inverno, um contraste com a região Norte.
+    """)
 
-        Em resumo, enquanto o Norte é dominado por um clima equatorial úmido com chuvas o ano todo devido à ZCIT e à Amazônia, o Sul tem um clima subtropical com chuvas mais regulares devido à influência de frentes frias e sistemas extratropicais.
-        """)
-
+# --- TRATAMENTO GERAL DE ERROS ---
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e o nome do arquivo.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média.")
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada.")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
