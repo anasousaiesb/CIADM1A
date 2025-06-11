@@ -1,131 +1,102 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
-import numpy as np
-from matplotlib.cm import get_cmap
+import seaborn as sns
+from scipy import stats
 
-# Caminho relativo ao arquivo CSV
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+# --- CONFIGURAÇÕES ---
+CAMINHO_CSV = "dados_climaticos.csv"  # Arquivo de dados
+REGIAO_DESEJADA = "Sudeste"           # Região a ser analisada
 
-# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
-def carregar_dados(caminho):
-    """Carrega e processa o arquivo de dados climáticos, calculando a amplitude térmica diária."""
-    try:
-        df = pd.read_csv(caminho)
-    except FileNotFoundError:
-        print(f"Erro: O arquivo '{caminho}' não foi encontrado. Por favor, verifique o caminho.")
-        return pd.DataFrame()
+# --- LEITURA E PRÉ-PROCESSAMENTO ---
+df = pd.read_csv(CAMINHO_CSV)
 
-    # Renomear colunas para facilitar o acesso, se existirem
-    df.rename(columns={
-        'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temp_Maxima',
-        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)': 'Temp_Minima'
-    }, inplace=True)
+# Padronização dos nomes das colunas
+col_max = 'TEMPERATURA MAXIMA (°C)'
+col_min = 'TEMPERATURA MINIMA (°C)'
+col_mes = 'MÊS'
+col_ano = 'ANO'
+col_regiao = 'REGIAO'
 
-    # Verifica se as colunas essenciais existem para calcular a amplitude
-    if 'Temp_Maxima' in df.columns and 'Temp_Minima' in df.columns:
-        df['Amplitude_Termica'] = df['Temp_Maxima'] - df['Temp_Minima']
+# Cálculo da amplitude térmica com tratamento de outliers
+df['Amplitude_Termica'] = df[col_max] - df[col_min]
+
+# Filtro da região e remoção de valores nulos
+df_regiao = df[df[col_regiao] == REGIAO_DESEJADA].copy()
+df_regiao = df_regiao.dropna(subset=['Amplitude_Termica', col_mes, col_ano])
+
+# --- ANÁLISE ESTATÍSTICA ---
+# Estatísticas descritivas por mês
+estatisticas_mensais = df_regiao.groupby(col_mes)['Amplitude_Termica'].describe()
+print("\nEstatísticas Mensais da Amplitude Térmica:")
+print(estatisticas_mensais)
+
+# Teste de tendência temporal (Mann-Kendall)
+anos_unicos = sorted(df_regiao[col_ano].unique())
+if len(anos_unicos) >= 4:  # Requer pelo menos 4 anos para análise de tendência
+    media_anual = df_regiao.groupby(col_ano)['Amplitude_Termica'].mean()
+    tau, p_value = stats.kendalltau(media_anual.index, media_anual.values)
+    print(f"\nTendência temporal (p-value): {p_value:.4f}")
+    if p_value < 0.05:
+        print("Tendência estatisticamente significativa detectada!")
     else:
-        print("Aviso: Colunas de temperatura máxima e/ou mínima não encontradas. Não foi possível calcular 'Amplitude_Termica'.")
-        return pd.DataFrame()
+        print("Nenhuma tendência significativa detectada.")
 
-    # Converte colunas para numérico, tratando erros e removendo NaNs
-    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
-    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    df['Hora (UTC)'] = pd.to_numeric(df['Hora (UTC)'], errors='coerce') # Necessário para contar dias únicos
-    df = df.dropna(subset=['Mês', 'Ano', 'Amplitude_Termica', 'Hora (UTC)']) # Garante que temos dados completos para a análise
+# --- VISUALIZAÇÕES MELHORADAS ---
+plt.style.use('seaborn')
 
-    return df
+# Gráfico 1: Boxplot mensal com distribuição
+plt.figure(figsize=(14, 7))
+sns.boxplot(x=col_mes, y='Amplitude_Termica', data=df_regiao, palette="coolwarm", 
+            showmeans=True, meanprops={"marker":"o","markerfacecolor":"white"})
+plt.title(f"Distribuição Mensal da Amplitude Térmica Diária\nRegião: {REGIAO_DESEJADA}", pad=20)
+plt.xlabel("Mês", labelpad=10)
+plt.ylabel("Amplitude Térmica (°C)", labelpad=10)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+sns.despine()
+plt.tight_layout()
+plt.show()
 
-# --- CARREGAMENTO DOS DADOS ---
-df_unificado = carregar_dados(caminho_arquivo_unificado)
+# Gráfico 2: Evolução temporal com intervalo de confiança
+plt.figure(figsize=(14, 6))
+sns.lineplot(x=col_ano, y='Amplitude_Termica', data=df_regiao, 
+             ci=95, estimator='mean', color='darkred', marker='o')
+plt.title(f"Evolução Anual da Média de Amplitude Térmica com IC 95%\nRegião: {REGIAO_DESEJADA}", pad=20)
+plt.xlabel("Ano", labelpad=10)
+plt.ylabel("Média Amplitude Térmica (°C)", labelpad=10)
+plt.grid(True, linestyle='--', alpha=0.5)
+sns.despine()
+plt.tight_layout()
+plt.show()
 
-if df_unificado.empty:
-    print("Não foi possível carregar ou processar os dados. Verifique o caminho do arquivo e as colunas de temperatura.")
-else:
-    if 'Amplitude_Termica' not in df_unificado.columns:
-        print("Erro: 'Amplitude_Termica' não calculada. Verifique as colunas de temperatura no seu CSV.")
-    else:
-        # --- DEFINIÇÕES PARA ANÁLISE ---
-        regiao_selecionada = 'SUDESTE' # Altere esta região conforme necessário
-        limiar_amplitude_elevada = 10.0 # Define o limiar em °C para considerar amplitude "elevada"
+# Gráfico 3: Heatmap mensal-anual
+pivot_table = df_regiao.pivot_table(values='Amplitude_Termica', 
+                                   index=col_ano, columns=col_mes, 
+                                   aggfunc='median')
+plt.figure(figsize=(12, 8))
+sns.heatmap(pivot_table, cmap="YlOrRd", annot=True, fmt=".1f", 
+            linewidths=.5, cbar_kws={'label': 'Amplitude Térmica (°C)'})
+plt.title(f"Variação Mensal-Anual da Amplitude Térmica\nRegião: {REGIAO_DESEJADA}", pad=20)
+plt.xlabel("Mês", labelpad=10)
+plt.ylabel("Ano", labelpad=10)
+plt.tight_layout()
+plt.show()
 
-        print(f"\n--- Análise de Dias com Amplitude Térmica Elevada ({limiar_amplitude_elevada}°C+) na Região {regiao_selecionada} ---")
+# --- IDENTIFICAÇÃO DE PADRÕES ---
+# Mês com maior variabilidade
+coef_var_mensal = df_regiao.groupby(col_mes)['Amplitude_Termica'].std() / df_regiao.groupby(col_mes)['Amplitude_Termica'].mean()
+mes_mais_variavel = coef_var_mensal.idxmax()
 
-        # --- FILTRAGEM DE DADOS ---
-        df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada].copy()
+# Ano mais atípico (teste Z-score)
+z_scores = stats.zscore(media_anual)
+ano_atipico = media_anual.index[abs(z_scores).argmax()]
 
-        if df_regiao.empty:
-            print(f"Não há dados para a região '{regiao_selecionada}' no arquivo fornecido.")
-        else:
-            # Identifica os dias com amplitude térmica elevada
-            df_regiao['Amplitude_Elevada'] = df_regiao['Amplitude_Termica'] >= limiar_amplitude_elevada
+print("\nPrincipais Achados:")
+print(f"- Mês com maior variabilidade: {mes_mais_variavel} (CV: {coef_var_mensal.max():.2f})")
+print(f"- Ano mais atípico: {ano_atipico} (Z-score: {z_scores.max():.2f})")
+print(f"- Amplitude média anual: {media_anual.mean():.1f}°C (±{media_anual.std():.1f}°C)")
 
-            # Para contar os dias únicos com amplitude elevada, precisamos de uma data única para cada registro
-            # Assumimos que cada linha representa uma leitura em um ponto do dia. Para contar "dias", precisamos de uma data
-            # Se seu CSV tem uma coluna de data, use-a. Caso contrário, criamos uma combinação Ano-Mês-Dia.
-            # O ideal seria ter uma coluna de 'Data' ou 'Dia' no seu CSV
-            if 'DATA (YYYY-MM-DD)' in df_regiao.columns:
-                df_regiao['Data_Unica'] = pd.to_datetime(df_regiao['DATA (YYYY-MM-DD)'])
-            else:
-                # Se não há coluna de DATA, tentamos criar uma para identificar dias únicos
-                # Esta abordagem pode ser imperfeita se houver múltiplas leituras no mesmo dia sem uma coluna de data
-                df_regiao['Data_Unica'] = pd.to_datetime(df_regiao['Ano'].astype(str) + '-' +
-                                                         df_regiao['Mês'].astype(str) + '-' +
-                                                         df_regiao.groupby(['Ano', 'Mês']).cumcount().add(1).astype(str), errors='coerce')
-                df_regiao.dropna(subset=['Data_Unica'], inplace=True) # Remove datas inválidas criadas
-
-            # Agrupa por Ano e Mês e conta os dias únicos que tiveram amplitude elevada
-            # Primeiro, filtra apenas as entradas com amplitude elevada
-            df_elevada = df_regiao[df_regiao['Amplitude_Elevada']].copy()
-
-            # Em seguida, conta o número de dias únicos com amplitude elevada por mês e ano
-            # Usamos .nunique() na Data_Unica para contar apenas uma vez por dia
-            contagem_dias_elevada = df_elevada.groupby(['Ano', 'Mês'])['Data_Unica'].nunique().unstack(level=0)
-            contagem_dias_elevada = contagem_dias_elevada.fillna(0) # Preenche meses sem dias elevados com 0
-
-            # Garante que todos os meses de 1 a 12 estão presentes e em ordem
-            contagem_dias_elevada = contagem_dias_elevada.reindex(range(1, 13)).fillna(0)
-
-            anos_disponiveis = contagem_dias_elevada.columns.tolist()
-
-            # --- VISUALIZAÇÃO: Número de Dias com Amplitude Elevada por Mês e Ano ---
-            print(f"\nGerando gráfico de 'Número de Dias com Amplitude Térmica Diária Acima de {limiar_amplitude_elevada}°C'...")
-            fig, ax = plt.subplots(figsize=(14, 7))
-
-            cmap = get_cmap('viridis')
-            cores_anos = {ano: cmap(i / (len(anos_disponiveis) - 1 if len(anos_disponiveis) > 1 else 1))
-                          for i, ano in enumerate(anos_disponiveis)}
-
-            for ano in anos_disponiveis:
-                ax.plot(contagem_dias_elevada.index, contagem_dias_elevada[ano],
-                        marker='o', linestyle='-', color=cores_anos.get(ano, 'gray'), label=str(int(ano)))
-
-            ax.set_title(f'Número de Dias com Amplitude Térmica Diária $\\ge {limiar_amplitude_elevada}°C$ por Mês e Ano - {regiao_selecionada}', fontsize=16)
-            ax.set_xlabel('Mês', fontsize=12)
-            ax.set_ylabel(f'Número de Dias ($\ge {limiar_amplitude_elevada}°C$)', fontsize=12)
-            ax.set_xticks(range(1, 13))
-            ax.grid(True, linestyle='--', alpha=0.6)
-            ax.legend(title='Ano', bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.tight_layout()
-            plt.show()
-
-            print("\n--- Interpretação dos Resultados ---")
-            print(f"Este gráfico mostra a ocorrência de dias com amplitude térmica diária igual ou superior a **{limiar_amplitude_elevada}°C** ao longo dos meses e anos na região **{regiao_selecionada}**.")
-            print("Picos na linha indicam meses e anos com maior frequência de dias com grandes variações de temperatura.")
-            print("\n**Meses/Anos com Variações Mais Acentuadas (em termos de frequência de amplitudes elevadas):**")
-
-            # Identificar o mês com maior média de dias elevados
-            media_dias_elevados_por_mes = contagem_dias_elevada.mean(axis=1)
-            mes_maior_media = media_dias_elevados_por_mes.idxmax()
-            print(f"- O mês de **{int(mes_maior_media)}** (Média: {media_dias_elevados_por_mes.max():.1f} dias) historicamente apresenta a maior média de dias com amplitude térmica elevada.")
-
-            # Identificar o ano com o maior número total de dias elevados
-            total_dias_elevados_por_ano = contagem_dias_elevada.sum(axis=0)
-            ano_maior_total = total_dias_elevados_por_ano.idxmax()
-            print(f"- O ano de **{int(ano_maior_total)}** (Total: {total_dias_elevados_por_ano.max():.1f} dias) teve o maior número total de dias com amplitude térmica elevada no período analisado.")
-
-            print("\n**Possíveis Hipóteses e Observações:**")
-            print(f"- Se a linha para os anos mais recentes estiver consistentemente mais alta, isso pode sugerir uma tendência de **aumento na frequência de dias com amplitude térmica elevada**.")
-            print("- Meses com maior número de dias com amplitude elevada podem indicar períodos de transição de estações ou menor nebulosidade, permitindo maior irradiação solar diurna e resfriamento noturno.")
-            print(f"- A variação entre os anos para o mesmo mês pode indicar a **variabilidade climática** de um ano para outro, merecendo investigações mais aprofundadas (ex: influência de El Niño/La Niña).")
+# --- RECOMENDAÇÕES BASEADAS NOS DADOS ---
+print("\nRecomendações:")
+print("1. Analisar as causas da maior variabilidade no mês", mes_mais_variavel)
+print("2. Investigar fatores climáticos específicos do ano", ano_atipico)
+print("3. Monitorar tendência de aumento/redução da amplitude térmica")
