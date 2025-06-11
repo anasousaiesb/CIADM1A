@@ -6,8 +6,39 @@ import numpy as np
 from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(layout="wide")
-st.title("Análise de Extremos Climáticos Regionais do Brasil (2020-2025)")
+st.set_page_config(layout="wide", page_title="Extremos Climáticos 🚨")
+
+# CSS para estilização aprimorada do título e subtítulo
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f0f2f5; /* Fundo cinza claro */
+}
+.main-title-4 {
+    font-size: 3.2em;
+    font-weight: 700;
+    color: #CC0000; /* Vermelho forte para extremos */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle-4 {
+    font-size: 1.6em;
+    color: #E65100; /* Laranja escuro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section-4 {
+    background: linear-gradient(135deg, #FFD180 0%, #FFAB40 100%); /* Gradiente de laranja */
+    padding: 1.8em;
+    border-radius: 12px;
+    margin-bottom: 2em;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    border: 1px solid #FF8F00;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
@@ -20,9 +51,9 @@ def carregar_dados(caminho):
 
     # Converte colunas para numérico, tratando erros
     for col in ['Mês', 'Ano', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-                'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-                'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-                'VENTO, RAJADA MAXIMA (m/s)']:
+                 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
+                 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
+                 'VENTO, RAJADA MAXIMA (m/s)']:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
@@ -33,8 +64,14 @@ def carregar_dados(caminho):
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS E NOVO ESTILO ---
+    st.markdown('<div class="header-section-4">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title-4">Análise de Extremos Climáticos Regionais do Brasil 🚨⚠️</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-4">Explorando Picos e Vales nos Dados Climáticos (2020-2025) 🌡️💨🌧️</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
     # --- INTERFACE DO USUÁRIO ---
-    st.sidebar.header("Filtros de Visualização")
+    st.sidebar.header("Filtros de Visualização ⚙️")
     
     regioes = sorted(df_unificado['Regiao'].unique())
     anos = sorted(df_unificado['Ano'].unique())
@@ -61,8 +98,8 @@ try:
     st.markdown("---")
 
     # --- ANÁLISE DE EXTREMOS CLIMÁTICOS POR REGIÃO ---
-    st.header(f"Análise de Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim})")
-    st.write(f"Esta seção apresenta os valores **máximos** (ou mínimos, para temperatura mínima) registrados para a variável selecionada em cada região, dentro do período de tempo escolhido.")
+    st.header(f"Valores Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📈")
+    st.write(f"Esta seção apresenta os valores **máximos** (ou mínimos, para temperatura mínima) registrados para a variável selecionada em cada região, dentro do período de tempo escolhido. Descubra quais regiões experimentaram as condições mais extremas! ")
 
     # Agrupando por região para encontrar os valores extremos
     if "Mínima" in nome_var_extremo: # Para temperatura mínima, queremos o menor valor
@@ -78,7 +115,7 @@ try:
 
         # Gráfico de barras para os extremos
         fig_extremo, ax_extremo = plt.subplots(figsize=(12, 6))
-        ax_extremo.bar(df_extremos_regionais['Regiao'], df_extremos_regionais[f'{nome_var_extremo} Extremo'], color='skyblue')
+        ax_extremo.bar(df_extremos_regionais['Regiao'], df_extremos_regionais[f'{nome_var_extremo} Extremo'], color='#FF7043') # Um tom de laranja/vermelho
         ax_extremo.set_title(f'{nome_var_extremo} Extremo por Região', fontsize=16)
         ax_extremo.set_xlabel('Região', fontsize=12)
         ax_extremo.set_ylabel(f'{nome_var_extremo} ({unidade_var_extremo})', fontsize=12)
@@ -89,28 +126,28 @@ try:
 
         st.markdown("---")
 
-        st.header("Insights e Hipóteses sobre Extremos Climáticos")
+        st.header("Insights e Hipóteses sobre Extremos Climáticos 🤔")
         st.warning("🚨 **Aviso:** As 'hipóteses' abaixo são exploratórias e baseadas em um período de dados limitado (2020-2025). Para conclusões definitivas sobre mudanças climáticas e eventos extremos, são necessárias séries históricas de dados muito mais longas.")
 
         if "Temperatura Máxima" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ( {df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais suscetível a **ondas de calor**.")
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais suscetível a **ondas de calor**.")
             st.markdown(f"**Hipótese:** Se a tendência de aumento das temperaturas máximas se mantiver, regiões que já registram valores elevados podem experimentar um **aumento na frequência e intensidade de eventos de calor extremo**, impactando a saúde pública, a agricultura e o consumo de energia.")
         elif "Temperatura Mínima" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o menor valor de **{nome_var_extremo}** ( {df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais propensa a **períodos de frio intenso**.")
+            st.markdown(f"**Observação:** A Região com o menor valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais propensa a **períodos de frio intenso**.")
             st.markdown(f"**Hipótese:** Regiões com temperaturas mínimas historicamente baixas podem enfrentar **desafios para a agricultura (geadas)** e para a infraestrutura, caso esses valores se tornem ainda mais extremos ou ocorram com maior frequência.")
         elif "Precipitação Total" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ( {df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode estar mais exposta a **chuvas intensas**.")
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode estar mais exposta a **chuvas intensas**.")
             st.markdown(f"**Hipótese:** A ocorrência de eventos de precipitação extrema pode indicar uma **maior propensão a inundações, deslizamentos de terra e interrupções em serviços essenciais** em certas regiões, exigindo planejamento urbano e medidas de contenção de riscos.")
         elif "Rajada Máxima de Vento" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ( {df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode experimentar **ventos mais fortes e potencialmente destrutivos**.")
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode experimentar **ventos mais fortes e potencialmente destrutivos**.")
             st.markdown(f"**Hipótese:** Ventos de alta velocidade podem causar **danos à infraestrutura, queda de árvores e interrupção no fornecimento de energia**. Regiões com registros elevados podem necessitar de estruturas mais resilientes e sistemas de alerta para a população.")
 
     else:
-        st.info("Não há dados de extremos disponíveis para a variável e o período selecionados.")
+        st.info("Não há dados de extremos disponíveis para a variável e o período selecionados. 😔 Tente ajustar os filtros!")
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a localização do arquivo. 📁")
 except KeyError as e:
-    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada.")
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada. 🧐")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e} 🐛")
