@@ -213,7 +213,8 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div class="footer-section">
-        <p>📊 Projeto CIADM1A-CIA001-20251 | Professor: Alexandre Vaz Roriz</p>
+        <p>📊 Disciplina: Ciência de Dados</p>
+        <p>Projeto CIADM1A-CIA001-20251 | Professor: Alexandre Vaz Roriz</p>
         <p>Desenvolvido por: Ana Sophia e Igor Andrade</p>
     </div>
     """, unsafe_allow_html=True)
