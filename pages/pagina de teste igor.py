@@ -1,223 +1,268 @@
+import pandas as pd
 import streamlit as st
+import os
+import matplotlib.pyplot as plt
 
-def main():
-    # Configuração da página
-    st.set_page_config(
-        page_title="Início - Análise Climática Brasil",
-        page_icon="☀️",
-        layout="wide",
-        initial_sidebar_state="expanded"
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide", page_title="Análise de Radiação Global no Brasil ☀️")
+
+# CSS para estilização aprimorada do título
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Caminho relativo ao arquivo CSV
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+@st.cache_data
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
+    # Converte colunas para numérico, tratando erros
+    for col in ['Ano', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    df = df.dropna(subset=['Ano', 'Mês', 'RADIACAO GLOBAL (Kj/m²)'])
+    return df
+
+try:
+    # Carregar os dados
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
+
+    # Verificar se as colunas necessárias existem
+    colunas_necessarias_existentes = ['Ano', 'Regiao', 'Mês', 'RADIACAO GLOBAL (Kj/m²)']
+    for coluna in colunas_necessarias_existentes:
+        if coluna not in df_unificado.columns:
+            raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV. Verifique o seu arquivo.")
+
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Análise Personalizada de Radiação Global ☀️📊</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Explorando Padrões Climáticos no Brasil (2020-2025) 🇧🇷</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # --- EXPLICAÇÃO INICIAL DO APP ---
+    st.markdown("---")
+    st.header("Entendendo a Análise de Radiação Global")
+    st.markdown("""
+        Este aplicativo Streamlit permite uma exploração detalhada da **Radiação Global média**
+        para as regiões do Brasil entre 2020 e 2025. Ao selecionar um ano, mês e região específicos,
+        você pode entender as condições de radiação solar para aquele período e local, além de
+        compará-las com médias mais amplas.
+        """)
+
+    # --- WIDGETS DE SELEÇÃO NA SIDEBAR ---
+    st.sidebar.header("Selecione os Filtros")
+    
+    # Selecionar ano
+    anos_disponiveis = sorted(df_unificado['Ano'].unique())
+    ano_selecionado = st.sidebar.selectbox(
+        "Ano:",
+        options=anos_disponiveis,
+        index=len(anos_disponiveis)-1 if 2023 not in anos_disponiveis else anos_disponiveis.index(2023)
     )
     
-    # CSS incorporado para estilização aprimorada
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
-    
-    html, body, [class*="st-"] {
-        font-family: 'Roboto', sans-serif;
+    # Dicionário de meses
+    meses_nome = {
+        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
     }
     
-    .stApp {
-        background-color: #f4f7fa; /* Fundo mais suave */
-    }
+    # Filtrar meses disponíveis para o ano selecionado
+    meses_disponiveis_ano = sorted(df_unificado[df_unificado['Ano'] == ano_selecionado]['Mês'].unique())
+    meses_nome_disponiveis = [meses_nome[mes] for mes in meses_disponiveis_ano]
+    
+    # Selecionar mês
+    mes_selecionado_nome = st.sidebar.selectbox(
+        "Mês:",
+        options=meses_nome_disponiveis,
+        index=0  # Sempre começa com o primeiro mês disponível
+    )
+    
+    # Obter o número do mês selecionado
+    mes_selecionado = [num for num, nome in meses_nome.items() if nome == mes_selecionado_nome][0]
+    
+    # Selecionar região
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    regiao_selecionada = st.sidebar.selectbox(
+        "Região:",
+        options=regioes_disponiveis,
+        index=0  # Sempre começa com a primeira região disponível
+    )
 
-    .main-header-container {
-        background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%); /* Gradiente verde vibrante */
-        padding: 3rem 2rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2.5rem;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-    }
-    .main-header-container h1 {
-        color: white;
-        font-weight: 700;
-        font-size: 3.2em;
-        margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    .main-header-container h3 {
-        color: #e0e0e0;
-        font-weight: 400;
-        font-size: 1.5em;
-    }
-    .main-header-container p {
-        color: #e0e0e0;
-        font-size: 1.1em;
-        max-width: 800px;
-        margin: 1rem auto 0;
-        line-height: 1.6;
-    }
-
-    .section-title {
-        color: #2e7d32; /* Verde mais escuro para títulos de seção */
-        font-weight: 600;
-        font-size: 2em;
-        margin-top: 2.5rem;
-        margin-bottom: 1.5rem;
-        border-bottom: 3px solid #a5d6a7;
-        padding-bottom: 0.5rem;
-    }
-
-    .topic-card, .question-card {
-        padding: 1.5rem;
-        border-radius: 12px;
-        background-color: #ffffff;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 1.5rem;
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .topic-card:hover, .question-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    }
-    .topic-card {
-        border-left: 6px solid #4CAF50; /* Verde principal */
-    }
-    .question-card {
-        border-left: 6px solid #FFC107; /* Amarelo para perguntas */
-    }
-    
-    .topic-title {
-        color: #388E3C; /* Verde escuro para título do tópico */
-        font-weight: 700;
-        font-size: 1.3em;
-        margin-bottom: 0.5rem;
-    }
-    .question-text {
-        color: #424242;
-        font-size: 1em;
-        line-height: 1.6;
-    }
-    .question-text strong {
-        color: #FF8F00; /* Laranja mais vibrante para números de pergunta */
-    }
-
-    .highlight-box {
-        background-color: #e8f5e9; /* Fundo verde claro */
-        padding: 1.8rem;
-        border-radius: 12px;
-        margin: 2.5rem 0;
-        border: 1px solid #c8e6c9;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-    }
-    .highlight-box h4 {
-        color: #2e7d32;
-        font-size: 1.5em;
-        margin-bottom: 1rem;
-        font-weight: 600;
-    }
-    .highlight-box p {
-        color: #424242;
-        font-size: 1em;
-        margin-bottom: 0.5rem;
-    }
-
-    .footer-section {
-        text-align: center;
-        color: #757575;
-        font-size: 0.9em;
-        margin-top: 3rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid #e0e0e0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Cabeçalho principal com gradiente e descrição
-    st.markdown('<div class="main-header-container">', unsafe_allow_html=True)
-    st.markdown("<h1>Análise Climática no Brasil 🇧🇷</h1>", unsafe_allow_html=True)
-    st.markdown("<h3>Explorando Dados do INMET (2020-2025)</h3>", unsafe_allow_html=True)
-    st.markdown("""
-    <p>Este sistema interativo foi desenvolvido para aprofundar o estudo dos padrões climáticos no Brasil, com foco em variáveis cruciais como <b>radiação global</b>, <b>temperatura</b> e <b>precipitação</b>. Utilize nossos recursos visuais e ferramentas de filtragem para desvendar insights valiosos sobre o clima em diferentes regiões brasileiras.</p>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # ---
-    
-    # Seção de Tópicos de Análise
-    st.markdown('<h2 class="section-title">✨ Nossas Áreas de Análise</h2>', unsafe_allow_html=True)
-    
-    # Tópicos da imagem
-    topics = [
-        "1. Radiação Global: Tendências e Anomalias (2020-2025)",
-        "2. Qualidade dos Dados e Correlações Climáticas",
-        "3. Padrões de Extremos Climáticos: Análise Detalhada",
-        "4. Radiação Global Facetada por Região e Variável",
-        "5. Contrastando o Clima em Diferentes Regiões",
-        "6. Análise da Temperatura Sazonal",
-        "7. Médias Mensais Regionais de Radiação Global",
-        "8. Comparativo de Padrões de Chuva"
-    ]
-    
-    col1, col2 = st.columns(2) # Usando colunas para organizar os cards
-    
-    for i, topic in enumerate(topics):
-        if i % 2 == 0: # Coloca nos cards da coluna 1
-            with col1:
-                st.markdown(f"""
-                <div class="topic-card">
-                    <p class="topic-title">{topic}</p>
-                </div>
-                """, unsafe_allow_html=True)
-        else: # Coloca nos cards da coluna 2
-            with col2:
-                st.markdown(f"""
-                <div class="topic-card">
-                    <p class="topic-title">{topic}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-    # ---
-    
-    # Seção de Perguntas de Pesquisa
-    st.markdown('<h2 class="section-title">💡 Questões-Chave que Buscamos Responder</h2>', unsafe_allow_html=True)
-    
-    questions = [
-        "1. Considerando a série temporal de radiação global de 2020 a 2025, quais tendências (aumento, diminuição, estabilidade) e anomalias (picos ou vales significativos) podem ser identificadas para o período? Como elas se comparam com anos anteriores?",
-        "2. Ao avaliar a qualidade dos dados de radiação global, que incertezas ou lacunas foram identificadas? Como essas incertezas podem afetar as correlações com outras variáveis climáticas (temperatura, nebulosidade, umidade)?",
-        "3. Quais foram os eventos de radiação global extrema (máximos e mínimos históricos) observados entre 2020 e 2025? Houve alguma correlação desses eventos com outros fenômenos climáticos extremos, como ondas de calor ou períodos de seca/chuva intensa?",
-        "4. Ao segmentar a análise de radiação global por diferentes regiões geográficas e variáveis (ex: tipo de vegetação, altitude), quais são as diferenças mais marcantes no comportamento da radiação? Como elas se relacionam com as características ambientais locais?",
-        "5. Considerando as diferenças climáticas regionais, como a radiação global média e sua variabilidade se comportam em climas distintos (ex: tropical úmido vs. semiárido)? Como essas variações podem ser explicadas pela interação com nebulosidade e umidade?",
-        "6. Como a radiação global sazonal se correlaciona com os padrões de temperatura sazonal em diferentes regiões? Qual o papel da radiação na explicação das variações de temperatura ao longo das estações, considerando o balanço de energia superficial?",
-        "7. Ao analisar as médias mensais regionais de radiação global, quais são os meses de maior e menor incidência em cada região? Como esses padrões mensais se comparam entre si, revelando particularidades climáticas regionais?",
-        "8. Existe uma relação inversa ou direta entre a radiação global e os padrões de precipitação (chuva) em diferentes regiões? Em que escala temporal (diária, mensal, sazonal) essa relação é mais evidente, e quais os mecanismos físicos que a explicam?"
-    ]
-    
-    for i, question in enumerate(questions):
-        st.markdown(f"""
-        <div class="question-card">
-            <p class="question-text"><strong>{i+1}.</strong> {question}</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ---
-    
-    # Seção de informações adicionais
-    st.markdown('<div class="highlight-box">', unsafe_allow_html=True)
-    st.markdown("<h4>🚀 Guia Rápido: Como Navegar no Sistema</h4>", unsafe_allow_html=True)
-    st.markdown("""
-    <ul>
-        <li>1. <b>Navegue</b> pelos tópicos de análise utilizando o menu lateral esquerdo.</li>
-        <li>2. <b>Selecione</b> os parâmetros desejados para cada visualização (filtros de data, região, variáveis, etc.).</li>
-        <li>3. <b>Explore</b> os gráficos interativos, mapas e tabelas de dados que fornecem insights detalhados.</li>
-        <li>4. <b>Utilize os filtros</b> para refinar sua pesquisa e focar em aspectos específicos do clima brasileiro.</li>
-        <li>5. <b>Interaja</b> com os elementos para uma experiência de análise dinâmica e personalizada.</li>
-    </ul>
-    """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Rodapé
     st.markdown("---")
+    # --- ANÁLISE PARA O ANO, MÊS E REGIÃO SELECIONADOS ---
+    st.header(f"Análise para {mes_selecionado_nome} de {ano_selecionado} - Região {regiao_selecionada}")
+    st.subheader("Métricas Principais")
     st.markdown("""
-    <div class="footer-section">
-        <p>📊 Disciplina: Ciência de Dados</p>
-        <p>Projeto CIADM1A-CIA001-20251 | Professor: Alexandre Vaz Roriz</p>
-        <p>Desenvolvido por: Ana Sophia e Igor Andrade</p>
-    </div>
-    """, unsafe_allow_html=True)
+        Após aplicar os filtros, esta seção exibe uma análise focada na Radiação Global
+        para o período e região escolhidos, através de métricas rápidas.
+        """)
 
-if __name__ == "__main__":
-    main()
+    # Filtrar dados para a seleção
+    df_filtrado = df_unificado[
+        (df_unificado['Ano'] == ano_selecionado) &
+        (df_unificado['Mês'] == mes_selecionado) &
+        (df_unificado['Regiao'] == regiao_selecionada)
+    ]
+
+    if df_filtrado.empty:
+        st.warning(f"Não foram encontrados dados para a região {regiao_selecionada} em {mes_selecionado_nome}/{ano_selecionado}.")
+    else:
+        # Calcular média para a região selecionada
+        media_regiao = df_filtrado['RADIACAO GLOBAL (Kj/m²)'].mean()
+        
+        # Comparar com a média geral do mês
+        media_geral_mes = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Mês'] == mes_selecionado)
+        ]['RADIACAO GLOBAL (Kj/m²)'].mean()
+        
+        # Comparar com a média anual da região
+        media_anual_regiao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Regiao'] == regiao_selecionada)
+        ]['RADIACAO GLOBAL (Kj/m²)'].mean()
+
+        # Exibir métricas
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                label=f"Radiação em {mes_selecionado_nome}",
+                value=f"{media_regiao:.2f} Kj/m²",
+                delta=f"{(media_regiao - media_geral_mes):.2f} Kj/m² vs média geral do mês"
+            )
+        with col2:
+            st.metric(
+                label="Média Geral do Mês (todas regiões)",
+                value=f"{media_geral_mes:.2f} Kj/m²"
+            )
+        with col3:
+            st.metric(
+                label="Média Anual da Região",
+                value=f"{media_anual_regiao:.2f} Kj/m²",
+                delta=f"{(media_regiao - media_anual_regiao):.2f} Kj/m² vs média anual da região"
+            )
+
+        st.markdown("""
+            Essas métricas permitem identificar rapidamente se a radiação no período escolhido
+            foi acima ou abaixo da média regional e nacional.
+            """)
+
+        # --- GRÁFICO DE COMPARAÇÃO REGIONAL ---
+        st.markdown("---")
+        st.subheader(f"Comparação Regional para {mes_selecionado_nome}/{ano_selecionado}")
+        st.markdown("""
+            Este gráfico de barras compara a Radiação Global média entre todas as regiões do Brasil
+            para o mês e ano selecionados.
+            **Propósito:** Este gráfico permite identificar quais regiões tiveram os maiores e menores
+            níveis de radiação para aquele período específico. A região que você selecionou nos filtros
+            da barra lateral será destacada para fácil visualização.
+            **Interpretação:** Regiões com barras mais altas indicam maior incidência de radiação solar,
+            o que pode ser relevante para setores como energia solar fotovoltaica e agricultura.
+            """)
+
+        # Dados para comparação
+        df_comparacao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Mês'] == mes_selecionado)
+        ].groupby('Regiao')['RADIACAO GLOBAL (Kj/m²)'].mean().sort_values(ascending=False)
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Cores - destacar a região selecionada
+        cores = ['lightgray' if regiao != regiao_selecionada else 'coral'
+                 for regiao in df_comparacao.index]
+        
+        bars = ax.bar(df_comparacao.index, df_comparacao.values, color=cores)
+        
+        ax.set_xlabel('Região')
+        ax.set_ylabel('Radiação Global Média (Kj/m²)')
+        ax.set_title(f'Comparação Regional - {mes_selecionado_nome}/{ano_selecionado}')
+        ax.tick_params(axis='x', rotation=45) # Rotaciona os rótulos do eixo X para melhor visualização
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        # Adicionar valores nas barras
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*yval,
+                            f'{yval:.2f}', ha='center', va='bottom')
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # --- EVOLUÇÃO MENSAL DA REGIÃO SELECIONADA ---
+        st.markdown("---")
+        st.subheader(f"Evolução Mensal em {ano_selecionado} - Região {regiao_selecionada}")
+        st.markdown("""
+            Este gráfico de linha ilustra a variação da Radiação Global média mês a mês
+            para a região e o ano selecionados.
+            **Propósito:** Ajuda a visualizar a sazonalidade da radiação solar na região,
+            observando os picos e vales ao longo do ano.
+            **Destaque:** O mês que você selecionou no filtro da barra lateral será marcado
+            no gráfico com uma linha tracejada, facilitando a localização do seu ponto de
+            interesse dentro do padrão anual.
+            **Interpretação:** Padrões consistentes de alta ou baixa radiação em certos meses
+            podem influenciar o planejamento de atividades que dependem da luz solar, como o
+            agronegócio ou a otimização de sistemas solares.
+            """)
+
+        df_evolucao = df_unificado[
+            (df_unificado['Ano'] == ano_selecionado) &
+            (df_unificado['Regiao'] == regiao_selecionada)
+        ].groupby('Mês')['RADIACAO GLOBAL (Kj/m²)'].mean()
+
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
+        ax2.plot(df_evolucao.index, df_evolucao.values, marker='o', color='coral')
+        
+        # Destacar o mês selecionado
+        if mes_selecionado in df_evolucao.index:
+            ax2.axvline(x=mes_selecionado, color='gray', linestyle='--', alpha=0.5)
+            # Ajuste da posição do texto para não sair do gráfico
+            y_text_pos = ax2.get_ylim()[1] * 0.9 if ax2.get_ylim()[1] * 0.9 > ax2.get_ylim()[0] else ax2.get_ylim()[1] * 0.7
+            ax2.text(mes_selecionado, y_text_pos,
+                            f'Mês selecionado\n{mes_selecionado_nome}',
+                            ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+
+        ax2.set_xlabel('Mês')
+        ax2.set_ylabel('Radiação Global Média (Kj/m²)')
+        ax2.set_title(f'Evolução Mensal - Região {regiao_selecionada} - {ano_selecionado}')
+        ax2.set_xticks(range(1, 13))
+        ax2.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+except FileNotFoundError:
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a estrutura de pastas.")
+except KeyError as e:
+    st.error(f"Erro: A coluna {e} não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto no código e no arquivo.")
+except Exception as e:
+    st.error(f"Ocorreu um erro inesperado: {str(e)}")
