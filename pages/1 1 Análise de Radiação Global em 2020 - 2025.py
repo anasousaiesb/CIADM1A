@@ -4,8 +4,38 @@ import os
 import matplotlib.pyplot as plt
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(layout="wide")
-st.title("Análise Personalizada de Radiação Global (2020-2025)")
+st.set_page_config(layout="wide", page_title="Análise de Radiação Global no Brasil ☀️")
+
+# CSS para estilização aprimorada do título
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
@@ -32,6 +62,12 @@ try:
         if coluna not in df_unificado.columns:
             raise KeyError(f"A coluna '{coluna}' não foi encontrada no arquivo CSV. Verifique o seu arquivo.")
 
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Análise Personalizada de Radiação Global ☀️📊</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Explorando Padrões Climáticos no Brasil (2020-2025) 🇧🇷</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
     # --- EXPLICAÇÃO INICIAL DO APP ---
     st.markdown("---")
     st.header("Entendendo a Análise de Radiação Global")
@@ -178,7 +214,7 @@ try:
         for bar in bars:
             yval = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05*yval,
-                    f'{yval:.2f}', ha='center', va='bottom')
+                            f'{yval:.2f}', ha='center', va='bottom')
 
         plt.tight_layout()
         st.pyplot(fig)
@@ -213,8 +249,8 @@ try:
             # Ajuste da posição do texto para não sair do gráfico
             y_text_pos = ax2.get_ylim()[1] * 0.9 if ax2.get_ylim()[1] * 0.9 > ax2.get_ylim()[0] else ax2.get_ylim()[1] * 0.7
             ax2.text(mes_selecionado, y_text_pos,
-                     f'Mês selecionado\n{mes_selecionado_nome}',
-                     ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+                            f'Mês selecionado\n{mes_selecionado_nome}',
+                            ha='center', va='top', bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
 
         ax2.set_xlabel('Mês')
         ax2.set_ylabel('Radiação Global Média (Kj/m²)')
