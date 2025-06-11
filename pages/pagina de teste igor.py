@@ -1,102 +1,128 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import streamlit as st
+from pathlib import Path
 from scipy import stats
 
-# --- CONFIGURAÇÕES ---
-CAMINHO_CSV = "dados_climaticos.csv"  # Arquivo de dados
-REGIAO_DESEJADA = "Sudeste"           # Região a ser analisada
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(page_title="Análise Climática", layout="wide")
 
-# --- LEITURA E PRÉ-PROCESSAMENTO ---
-df = pd.read_csv(CAMINHO_CSV)
+# --- FUNÇÃO PARA CARREGAR DADOS ---
+@st.cache_data  # Cache para melhor performance
+def load_data():
+    # Caminhos possíveis (tente todos antes de falhar)
+    possible_paths = [
+        Path("medias") / "medias_mensais_geo_2020_2025.csv",  # Caminho relativo local
+        Path(__file__).parent / "medias" / "medias_mensais_geo_2020_2025.csv",  # Relativo ao script
+        Path(__file__).parent.parent / "medias" / "medias_mensais_geo_2020_2025.csv"  # Um nível acima
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            df = pd.read_csv(path)
+            
+            # Verifica colunas necessárias
+            required_cols = {'REGIAO', 'MÊS', 'ANO', 'TEMPERATURA MAXIMA (°C)', 'TEMPERATURA MINIMA (°C)'}
+            if not required_cols.issubset(df.columns):
+                missing = required_cols - set(df.columns)
+                st.error(f"Colunas faltando: {missing}")
+                return None
+            
+            return df
+    
+    # Se nenhum caminho funcionou, permitir upload
+    uploaded_file = st.file_uploader("Arquivo não encontrado. Faça upload do CSV:", type="csv")
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
+    
+    return None
 
-# Padronização dos nomes das colunas
-col_max = 'TEMPERATURA MAXIMA (°C)'
-col_min = 'TEMPERATURA MINIMA (°C)'
-col_mes = 'MÊS'
-col_ano = 'ANO'
-col_regiao = 'REGIAO'
+# --- INTERFACE DO USUÁRIO ---
+st.title("📈 Análise de Amplitude Térmica")
+st.markdown("""
+Analise a variação da temperatura por região, mês e ano.
+""")
 
-# Cálculo da amplitude térmica com tratamento de outliers
-df['Amplitude_Termica'] = df[col_max] - df[col_min]
+# Carrega os dados
+df = load_data()
 
-# Filtro da região e remoção de valores nulos
-df_regiao = df[df[col_regiao] == REGIAO_DESEJADA].copy()
-df_regiao = df_regiao.dropna(subset=['Amplitude_Termica', col_mes, col_ano])
+if df is None:
+    st.warning("Por favor, faça upload do arquivo de dados ou verifique o caminho.")
+    st.stop()
+
+# --- PROCESSAMENTO DOS DADOS ---
+# Calcula amplitude térmica
+df['Amplitude_Termica'] = df['TEMPERATURA MAXIMA (°C)'] - df['TEMPERATURA MINIMA (°C)']
+
+# Widgets de seleção
+regioes = sorted(df['REGIAO'].unique())
+REGIAO_DESEJADA = st.sidebar.selectbox("Selecione a Região:", regioes, index=regioes.index('Sudeste') if 'Sudeste' in regioes else 0)
+
+# Filtra a região
+df_regiao = df[df['REGIAO'] == REGIAO_DESEJADA].copy()
+
+# --- VISUALIZAÇÕES ---
+tab1, tab2, tab3 = st.tabs(["Distribuição Mensal", "Evolução Anual", "Heatmap"])
+
+with tab1:
+    st.subheader(f"Distribuição por Mês - {REGIAO_DESEJADA}")
+    plt.figure(figsize=(12,6))
+    sns.boxplot(x='MÊS', y='Amplitude_Termica', data=df_regiao, palette="coolwarm", showmeans=True)
+    plt.title(f"Amplitude Térmica por Mês\nRegião: {REGIAO_DESEJADA}")
+    plt.xlabel("Mês")
+    plt.ylabel("Amplitude Térmica (°C)")
+    st.pyplot(plt)
+
+with tab2:
+    st.subheader(f"Evolução Anual - {REGIAO_DESEJADA}")
+    media_anual = df_regiao.groupby('ANO')['Amplitude_Termica'].mean()
+    
+    plt.figure(figsize=(12,6))
+    sns.lineplot(x=media_anual.index, y=media_anual.values, marker='o', ci=95)
+    plt.title(f"Média Anual da Amplitude Térmica\nRegião: {REGIAO_DESEJADA}")
+    plt.xlabel("Ano")
+    plt.ylabel("Amplitude Média (°C)")
+    plt.grid(True, linestyle='--', alpha=0.6)
+    st.pyplot(plt)
+
+with tab3:
+    st.subheader(f"Variação Mensal-Anual - {REGIAO_DESEJADA}")
+    pivot = df_regiao.pivot_table(values='Amplitude_Termica', index='ANO', columns='MÊS', aggfunc='median')
+    
+    plt.figure(figsize=(12,8))
+    sns.heatmap(pivot, cmap="YlOrRd", annot=True, fmt=".1f", linewidths=.5)
+    plt.title(f"Amplitude Térmica por Mês e Ano\nRegião: {REGIAO_DESEJADA}")
+    st.pyplot(plt)
 
 # --- ANÁLISE ESTATÍSTICA ---
-# Estatísticas descritivas por mês
-estatisticas_mensais = df_regiao.groupby(col_mes)['Amplitude_Termica'].describe()
-print("\nEstatísticas Mensais da Amplitude Térmica:")
-print(estatisticas_mensais)
+st.sidebar.subheader("Análise Estatística")
+if st.sidebar.button("Calcular Estatísticas"):
+    with st.expander("📊 Resultados Estatísticos"):
+        # Mês com maior amplitude
+        mes_max = df_regiao.groupby('MÊS')['Amplitude_Termica'].median().idxmax()
+        
+        # Ano com maior amplitude
+        ano_max = df_regiao.groupby('ANO')['Amplitude_Termica'].mean().idxmax()
+        
+        # Tendência temporal
+        anos = df_regiao['ANO'].unique()
+        if len(anos) >= 4:
+            media_anual = df_regiao.groupby('ANO')['Amplitude_Termica'].mean()
+            tau, p_value = stats.kendalltau(media_anual.index, media_anual.values)
+        
+        st.write(f"🔹 **Mês com maior amplitude:** {mes_max}")
+        st.write(f"🔹 **Ano com maior amplitude:** {ano_max}")
+        
+        if len(anos) >= 4:
+            st.write(f"🔹 **Tendência temporal (p-value):** {p_value:.4f}")
+            st.write("✅ Tendência significativa" if p_value < 0.05 else "❌ Sem tendência significativa")
 
-# Teste de tendência temporal (Mann-Kendall)
-anos_unicos = sorted(df_regiao[col_ano].unique())
-if len(anos_unicos) >= 4:  # Requer pelo menos 4 anos para análise de tendência
-    media_anual = df_regiao.groupby(col_ano)['Amplitude_Termica'].mean()
-    tau, p_value = stats.kendalltau(media_anual.index, media_anual.values)
-    print(f"\nTendência temporal (p-value): {p_value:.4f}")
-    if p_value < 0.05:
-        print("Tendência estatisticamente significativa detectada!")
-    else:
-        print("Nenhuma tendência significativa detectada.")
-
-# --- VISUALIZAÇÕES MELHORADAS ---
-plt.style.use('seaborn')
-
-# Gráfico 1: Boxplot mensal com distribuição
-plt.figure(figsize=(14, 7))
-sns.boxplot(x=col_mes, y='Amplitude_Termica', data=df_regiao, palette="coolwarm", 
-            showmeans=True, meanprops={"marker":"o","markerfacecolor":"white"})
-plt.title(f"Distribuição Mensal da Amplitude Térmica Diária\nRegião: {REGIAO_DESEJADA}", pad=20)
-plt.xlabel("Mês", labelpad=10)
-plt.ylabel("Amplitude Térmica (°C)", labelpad=10)
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-sns.despine()
-plt.tight_layout()
-plt.show()
-
-# Gráfico 2: Evolução temporal com intervalo de confiança
-plt.figure(figsize=(14, 6))
-sns.lineplot(x=col_ano, y='Amplitude_Termica', data=df_regiao, 
-             ci=95, estimator='mean', color='darkred', marker='o')
-plt.title(f"Evolução Anual da Média de Amplitude Térmica com IC 95%\nRegião: {REGIAO_DESEJADA}", pad=20)
-plt.xlabel("Ano", labelpad=10)
-plt.ylabel("Média Amplitude Térmica (°C)", labelpad=10)
-plt.grid(True, linestyle='--', alpha=0.5)
-sns.despine()
-plt.tight_layout()
-plt.show()
-
-# Gráfico 3: Heatmap mensal-anual
-pivot_table = df_regiao.pivot_table(values='Amplitude_Termica', 
-                                   index=col_ano, columns=col_mes, 
-                                   aggfunc='median')
-plt.figure(figsize=(12, 8))
-sns.heatmap(pivot_table, cmap="YlOrRd", annot=True, fmt=".1f", 
-            linewidths=.5, cbar_kws={'label': 'Amplitude Térmica (°C)'})
-plt.title(f"Variação Mensal-Anual da Amplitude Térmica\nRegião: {REGIAO_DESEJADA}", pad=20)
-plt.xlabel("Mês", labelpad=10)
-plt.ylabel("Ano", labelpad=10)
-plt.tight_layout()
-plt.show()
-
-# --- IDENTIFICAÇÃO DE PADRÕES ---
-# Mês com maior variabilidade
-coef_var_mensal = df_regiao.groupby(col_mes)['Amplitude_Termica'].std() / df_regiao.groupby(col_mes)['Amplitude_Termica'].mean()
-mes_mais_variavel = coef_var_mensal.idxmax()
-
-# Ano mais atípico (teste Z-score)
-z_scores = stats.zscore(media_anual)
-ano_atipico = media_anual.index[abs(z_scores).argmax()]
-
-print("\nPrincipais Achados:")
-print(f"- Mês com maior variabilidade: {mes_mais_variavel} (CV: {coef_var_mensal.max():.2f})")
-print(f"- Ano mais atípico: {ano_atipico} (Z-score: {z_scores.max():.2f})")
-print(f"- Amplitude média anual: {media_anual.mean():.1f}°C (±{media_anual.std():.1f}°C)")
-
-# --- RECOMENDAÇÕES BASEADAS NOS DADOS ---
-print("\nRecomendações:")
-print("1. Analisar as causas da maior variabilidade no mês", mes_mais_variavel)
-print("2. Investigar fatores climáticos específicos do ano", ano_atipico)
-print("3. Monitorar tendência de aumento/redução da amplitude térmica")
+# --- DICAS PARA DEPLOY NO STREAMLIT CLOUD ---
+st.sidebar.info("""
+**Dicas para deploy:**
+1. Certifique-se que o arquivo está na pasta `/medias`
+2. Verifique o nome exato do arquivo
+3. Confira os logs em caso de erro
+""")
