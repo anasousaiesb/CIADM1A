@@ -20,7 +20,6 @@ def carregar_dados(caminho):
 
     # --- Renomear colunas para facilitar o uso no código (opcional, mas boa prática) ---
     # Mapeamento dos nomes de coluna do seu CSV para nomes padronizados no código
-    # **REVISADO COM BASE NO ERRO E VARIÁVEIS FORNECIDAS**
     col_mapping = {
         'Hora UTC': 'Hora_UTC',
         'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'Precipitacao_Total_Horaria',
@@ -33,11 +32,10 @@ def carregar_dados(caminho):
         'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Maxima_Hora_Ant',
         'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Minima_Hora_Ant',
         
-        # >>>>> ATENÇÃO AQUI: INSIRA O NOME EXATO DA COLUNA DE UMIDADE DO SEU CSV <<<<<
-        # EX: 'UMIDADE RELATIVA DO AR, HORARIA (%)'
-        # SE O NOME REAL FOR 'UMIDADE DO AR', MUDAR PARA: 'UMIDADE DO AR': 'Umidade_Relativa_Horaria',
-        # SE O NOME REAL FOR 'UMID_REL', MUDAR PARA: 'UMID_REL': 'Umidade_Relativa_Horaria',
-        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria', # <-- SUBSTITUA ESTA CHAVE
+        # >>>>> AQUI VOCÊ DEVE INSERIR O NOME EXATO DA COLUNA DE UMIDADE DO SEU CSV <<<<<
+        # POR FAVOR, VERIFIQUE SEU ARQUIVO CSV PARA O NOME CORRETO.
+        # EXEMPLO: Se o nome for 'UMIDADE_RELATIVA_AR', mude a chave abaixo para isso.
+        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria', # <-- ***MUDE ESTA CHAVE***
         
         'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',
         'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria',
@@ -64,6 +62,7 @@ def carregar_dados(caminho):
         df['Hora_UTC'] = pd.to_numeric(df['Hora_UTC'], errors='coerce').fillna(0).astype(int)
         df['Data_Hora_Completa'] = df.apply(lambda row: row['Data_Original'].replace(hour=row['Hora_UTC']) if pd.notna(row['Data_Original']) else pd.NaT, axis=1)
     else:
+        # This is the warning you're seeing, as Hora UTC is optional for daily analysis.
         st.warning("Coluna 'Hora UTC' não encontrada. A análise diária será baseada apenas na data, não na hora exata.")
         df['Data_Hora_Completa'] = df['Data_Original']
 
@@ -75,9 +74,8 @@ def carregar_dados(caminho):
         st.stop()
 
     # --- VERIFICAÇÃO FINAL DA COLUNA DE UMIDADE ---
-    # Este é o ponto onde o erro provavelmente está ocorrendo novamente.
-    # A linha abaixo irá disparar um erro se 'Umidade_Relativa_Horaria' ainda não existir
-    # APÓS o rename.
+    # Este é o ponto onde o erro está ocorrendo, pois 'Umidade_Relativa_Horaria'
+    # não está sendo criada pelo rename se a chave original estiver errada.
     if 'Umidade_Relativa_Horaria' not in df.columns:
         st.error("Erro: Coluna 'Umidade_Relativa_Horaria' não encontrada após o mapeamento. Por favor, verifique o nome exato da coluna de umidade no seu arquivo CSV e ajuste o 'col_mapping'.")
         st.stop()
@@ -99,7 +97,6 @@ def carregar_dados(caminho):
 
     return df_diario
 
-# --- O restante do código (calcular_score_atipicidade e o bloco try/except) permanece o mesmo ---
 # --- CÁLCULO DO SCORE DE ATIPICIDADE ---
 def calcular_score_atipicidade(df_diario_regiao):
     """
