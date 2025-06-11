@@ -4,10 +4,13 @@ import streamlit as st
 import os
 import numpy as np
 
-# --- ALTERAÇÃO: Título principal mais descritivo ---
-st.title("Análise Climática Interativa por Região (2020-2025)")
+# --- Título principal mais descritivo e com emojis ---
+st.set_page_config(layout="wide", page_title="Análise Climática Interativa por Região")
 
-# --- OTIMIZAÇÃO: Função para carregar e cachear os dados ---
+st.title("🌎 Análise Climática Interativa por Região (2020-2025) ☀️")
+st.markdown("Bem-vindo(a) ao seu painel interativo para explorar dados climáticos do Brasil! Use os filtros na barra lateral para mergulhar nas tendências de temperatura, radiação e precipitação em diferentes regiões e anos.")
+
+# --- Função para carregar e cachear os dados ---
 @st.cache_data
 def carregar_dados(caminho):
     """
@@ -33,8 +36,8 @@ try:
     caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # --- MELHORIA: Filtros interativos na barra lateral ---
-    st.sidebar.header("Filtros de Visualização")
+    # --- Filtros interativos na barra lateral ---
+    st.sidebar.header("⚙️ Ajuste sua Análise Aqui:")
 
     # Listas para os filtros
     regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
@@ -42,14 +45,14 @@ try:
 
     # Filtro de Regiões
     regioes_selecionadas = st.sidebar.multiselect(
-        "Selecione as Regiões:",
+        "📍 Selecione as Regiões de Interesse:",
         options=regioes_disponiveis,
         default=regioes_disponiveis[:2]  # Seleciona as duas primeiras regiões por padrão
     )
 
     # Filtro de Anos
     anos_selecionados = st.sidebar.multiselect(
-        "Selecione os Anos:",
+        "📅 Escolha os Anos para Comparar:",
         options=anos_disponiveis,
         default=anos_disponiveis # Todos os anos selecionados por padrão
     )
@@ -61,19 +64,19 @@ try:
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
     }
     nome_var = st.sidebar.selectbox(
-        "Selecione a Variável:",
+        "📊 Qual Variável Climática Deseja Visualizar?",
         options=list(variaveis.keys())
     )
     coluna_var = variaveis[nome_var]
 
     # Validação para evitar erros se nenhuma região ou ano for selecionado
     if not regioes_selecionadas or not anos_selecionados:
-        st.warning("Por favor, selecione pelo menos uma região e um ano para continuar.")
+        st.warning("⚠️ **Ops!** Parece que você esqueceu de selecionar uma região ou um ano. Por favor, escolha pelo menos um de cada para iniciarmos a análise. ⏳")
         st.stop()
     
     # Validação da existência da coluna da variável
     if coluna_var not in df_unificado.columns:
-        st.error(f"A coluna '{coluna_var}' para a variável '{nome_var}' não foi encontrada no arquivo.")
+        st.error(f"❌ **Erro:** A coluna '{coluna_var}' para a variável '{nome_var}' não foi encontrada nos dados. Por favor, verifique o arquivo CSV. 😬")
         st.stop()
 
     # Filtra o DataFrame principal com base nas seleções do usuário
@@ -83,16 +86,21 @@ try:
     ]
 
     # --- Gráfico Principal ---
-    st.header(f"Média Mensal de {nome_var}")
+    st.header(f"📈 Tendência Mensal de {nome_var} por Região e Ano")
+    st.markdown(f"Explore como a **{nome_var.lower()}** se comporta ao longo dos meses para as regiões e anos selecionados. Cada linha representa um ano, permitindo uma comparação clara das tendências sazonais.")
 
-    # --- ALTERAÇÃO: Cor do gráfico modificada para 'plasma' ---
-    cmap = plt.get_cmap('plasma')
+    # --- Cor do gráfico modificada para 'plasma' ---
+    cmap = plt.get_cmap('viridis') # 'viridis' é uma boa alternativa para 'plasma' e mais acessível
     cores_anos = {ano: cmap(i / len(anos_selecionados)) for i, ano in enumerate(anos_selecionados)}
 
     # Criação do grid de gráficos dinamicamente
-    n_cols = 3
+    n_cols = 2 if len(regioes_selecionadas) > 1 else 1 # Ajusta o número de colunas
+    if len(regioes_selecionadas) > 4: # Para muitas regiões, use 3 colunas
+        n_cols = 3
+    
     n_rows = int(np.ceil(len(regioes_selecionadas) / n_cols))
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5 * n_cols, 4 * n_rows), sharey=True, squeeze=False)
+    
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(7 * n_cols, 5 * n_rows), sharey=True, squeeze=False)
     axes = axes.flatten()
 
     for i, regiao in enumerate(regioes_selecionadas):
@@ -101,13 +109,15 @@ try:
         for ano in anos_selecionados:
             df_ano_regiao = df_regiao_filtrada[df_regiao_filtrada['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
             if not df_ano_regiao.empty:
-                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-        ax.set_title(regiao, fontsize=14)
-        ax.set_xlabel('Mês')
+                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano), linewidth=2, markersize=6)
+        ax.set_title(f"Região: {regiao}", fontsize=14, fontweight='bold')
+        ax.set_xlabel('Mês do Ano')
         if i % n_cols == 0:
-            ax.set_ylabel(nome_var)
+            ax.set_ylabel(nome_var, fontsize=12)
         ax.set_xticks(range(1, 13))
-        ax.grid(True, linestyle='--', alpha=0.6)
+        ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+        ax.grid(True, linestyle='--', alpha=0.7)
+        ax.tick_params(axis='both', which='major', labelsize=10)
 
     # Remove eixos vazios
     for j in range(i + 1, len(axes)):
@@ -115,20 +125,21 @@ try:
 
     # Criação da legenda unificada
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, title='Ano', loc='upper right')
-    plt.tight_layout(rect=[0, 0, 0.95, 1])
+    fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.0, 1.0), ncol=1, fancybox=True, shadow=True)
+    plt.tight_layout(rect=[0, 0, 0.9, 1]) # Ajusta o layout para a legenda
     st.pyplot(fig)
+    st.markdown("---")
 
     # --- Seções de Análise (só aparecem se a variável for Radiação Global) ---
     if nome_var == 'Radiação Global (Kj/m²)':
-        st.markdown("---")
-        st.header("Análise Detalhada da Radiação Global")
+        st.header("insights sobre Radiação Global ☀️")
+        st.markdown("A radiação solar é uma métrica crucial! Vamos entender seus picos e vales, e como ela se distribui ao longo das estações.")
 
         col1, col2 = st.columns(2)
 
         with col1:
             # Análise de Extremos
-            st.subheader("Extremos de Radiação")
+            st.subheader("Extremos de Radiação Detectados 🚀")
             if not df_filtrado[coluna_var].empty:
                 idx_max = df_filtrado[coluna_var].idxmax()
                 max_rad_data = df_filtrado.loc[idx_max]
@@ -136,19 +147,25 @@ try:
                 idx_min = df_filtrado[coluna_var].idxmin()
                 min_rad_data = df_filtrado.loc[idx_min]
                 
-                st.info(f"**Máximo:** **{max_rad_data[coluna_var]:.2f} Kj/m²**\n"
-                          f"({max_rad_data['Regiao']}, Mês {int(max_rad_data['Mês'])}, Ano {int(max_rad_data['Ano'])})")
+                st.markdown(f"**Maior Radiação Registrada:**\n"
+                            f"**{max_rad_data[coluna_var]:.2f} Kj/m²** 🤯\n"
+                            f"📍 Região: **{max_rad_data['Regiao']}**\n"
+                            f"🗓️ Mês: **{int(max_rad_data['Mês'])}**\n"
+                            f"🗓️ Ano: **{int(max_rad_data['Ano'])}**")
 
-                st.info(f"**Mínimo:** **{min_rad_data[coluna_var]:.2f} Kj/m²**\n"
-                          f"({min_rad_data['Regiao']}, Mês {int(min_rad_data['Mês'])}, Ano {int(min_rad_data['Ano'])})")
+                st.markdown(f"**Menor Radiação Registrada:**\n"
+                            f"**{min_rad_data[coluna_var]:.2f} Kj/m²** 🥶\n"
+                            f"📍 Região: **{min_rad_data['Regiao']}**\n"
+                            f"🗓️ Mês: **{int(min_rad_data['Mês'])}**\n"
+                            f"🗓️ Ano: **{int(min_rad_data['Ano'])}**")
             else:
-                st.write("Dados insuficientes para análise de extremos.")
+                st.info("Não há dados suficientes para analisar os extremos de radiação para a sua seleção. 😔")
 
         with col2:
             # Análise Sazonal
-            st.subheader("Média por Estação")
-            meses_verao = [12, 1, 2]
-            meses_inverno = [6, 7, 8]
+            st.subheader("Média por Estação (Verão vs. Inverno) 🌡️")
+            meses_verao = [12, 1, 2] # Considerando o verão no hemisfério sul
+            meses_inverno = [6, 7, 8] # Considerando o inverno no hemisfério sul
             
             dados_sazonais = []
             for regiao in regioes_selecionadas:
@@ -162,16 +179,25 @@ try:
                 })
             
             df_sazonais = pd.DataFrame(dados_sazonais)
-            st.dataframe(df_sazonais.round(2))
+            if not df_sazonais.empty:
+                st.dataframe(df_sazonais.round(2).style.highlight_max(subset=['Média Verão (Kj/m²)', 'Média Inverno (Kj/m²)'], axis=1, color='lightgreen').highlight_min(subset=['Média Verão (Kj/m²)', 'Média Inverno (Kj/m²)'], axis=1, color='salmon'))
+            else:
+                st.info("Não foi possível calcular as médias sazonais com os dados selecionados. 🙁")
 
+        st.markdown("---")
+        st.subheader("Por que a Radiação Solar Importa? 💡")
         st.markdown("""
-        ### Relevância da Radiação Solar
-        - **Energia Solar:** Picos de radiação indicam alto potencial para geração fotovoltaica.
-        - **Agricultura:** A radiação é vital para a fotossíntese, mas em excesso pode causar estresse hídrico.
-        - **Clima:** Influencia a temperatura, a evaporação de reservatórios e a formação de ilhas de calor urbanas.
+        A **radiação solar** é muito mais do que apenas luz do sol! Ela é um motor para diversos aspectos:
+
+        * **Energia Solar Sustentável:** Regiões com alta radiação são ideais para a instalação de painéis fotovoltaicos, convertendo a luz do sol em eletricidade limpa e renovável. 🌞 Potencial máximo!
+        * **Agricultura e Produção de Alimentos:** Essencial para a **fotossíntese**, a radiação solar impulsiona o crescimento das plantas. Conhecer seus níveis ajuda a otimizar o plantio e a irrigação, evitando estresse nas culturas. 🌾
+        * **Impacto no Clima e Meio Ambiente:** A radiação influencia diretamente a **temperatura** (calor), a **evaporação** de rios e reservatórios e até a formação de **ilhas de calor** em áreas urbanas. É um fator chave para entender as mudanças climáticas. 🌡️💧
         """)
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+    st.error(f"❌ **Erro:** O arquivo de dados climáticos '{caminho_arquivo_unificado}' não foi encontrado. Por favor, certifique-se de que ele está na pasta 'medias' dentro do diretório do seu aplicativo. 🧐")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado: {e}")
+    st.error(f"💥 **Ocorreu um erro inesperado:** Parece que algo deu errado ao processar os dados. Por favor, tente novamente ou entre em contato com o suporte se o problema persistir. Detalhes do erro: `{e}`")
+
+st.markdown("---")
+st.markdown("Feito com ❤️ e dados climáticos para você explorar! Gostaria de analisar alguma outra variável ou período? ✨")
