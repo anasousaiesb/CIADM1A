@@ -176,14 +176,14 @@ def main():
     st.markdown('<h2 class="section-title">💡 Questões-Chave que Buscamos Responder</h2>', unsafe_allow_html=True)
     
     questions = [
-        "1. Considerando a série temporal de radiação global de 2020 a 2025, quais **tendências** (aumento, diminuição, estabilidade) e **anomalias** (picos ou vales significativos) podem ser identificadas para o período? Como elas se comparam com anos anteriores?",
-        "2. Ao avaliar a **qualidade dos dados** de radiação global, que incertezas ou lacunas foram identificadas? Como essas incertezas podem afetar as correlações com outras variáveis climáticas (temperatura, nebulosidade, umidade)?",
-        "3. Quais foram os **eventos de radiação global extrema** (máximos e mínimos históricos) observados entre 2020 e 2025? Houve alguma correlação desses eventos com outros fenômenos climáticos extremos, como ondas de calor ou períodos de seca/chuva intensa?",
-        "4. Ao segmentar a análise de radiação global por **diferentes regiões geográficas e variáveis** (ex: tipo de vegetação, altitude), quais são as diferenças mais marcantes no comportamento da radiação? Como elas se relacionam com as características ambientais locais?",
-        "5. Considerando as **diferenças climáticas regionais**, como a radiação global média e sua variabilidade se comportam em climas distintos (ex: tropical úmido vs. semiárido)? Como essas variações podem ser explicadas pela interação com nebulosidade e umidade?",
-        "6. Como a **radiação global sazonal** se correlaciona com os padrões de temperatura sazonal em diferentes regiões? Qual o papel da radiação na explicação das variações de temperatura ao longo das estações, considerando o balanço de energia superficial?",
-        "7. Ao analisar as **médias mensais regionais de radiação global**, quais são os meses de maior e menor incidência em cada região? Como esses padrões mensais se comparam entre si, revelando particularidades climáticas regionais?",
-        "8. Existe uma **relação inversa ou direta** entre a radiação global e os padrões de precipitação (chuva) em diferentes regiões? Em que escala temporal (diária, mensal, sazonal) essa relação é mais evidente, e quais os mecanismos físicos que a explicam?"
+        "1. Considerando a série temporal de radiação global de 2020 a 2025, quais tendências (aumento, diminuição, estabilidade) e anomalias (picos ou vales significativos) podem ser identificadas para o período? Como elas se comparam com anos anteriores?",
+        "2. Ao avaliar a qualidade dos dados de radiação global, que incertezas ou lacunas foram identificadas? Como essas incertezas podem afetar as correlações com outras variáveis climáticas (temperatura, nebulosidade, umidade)?",
+        "3. Quais foram os eventos de radiação global extrema (máximos e mínimos históricos) observados entre 2020 e 2025? Houve alguma correlação desses eventos com outros fenômenos climáticos extremos, como ondas de calor ou períodos de seca/chuva intensa?",
+        "4. Ao segmentar a análise de radiação global por diferentes regiões geográficas e variáveis (ex: tipo de vegetação, altitude), quais são as diferenças mais marcantes no comportamento da radiação? Como elas se relacionam com as características ambientais locais?",
+        "5. Considerando as diferenças climáticas regionais, como a radiação global média e sua variabilidade se comportam em climas distintos (ex: tropical úmido vs. semiárido)? Como essas variações podem ser explicadas pela interação com nebulosidade e umidade?",
+        "6. Como a radiação global sazonal se correlaciona com os padrões de temperatura sazonal em diferentes regiões? Qual o papel da radiação na explicação das variações de temperatura ao longo das estações, considerando o balanço de energia superficial?",
+        "7. Ao analisar as médias mensais regionais de radiação global, quais são os meses de maior e menor incidência em cada região? Como esses padrões mensais se comparam entre si, revelando particularidades climáticas regionais?",
+        "8. Existe uma relação inversa ou direta entre a radiação global e os padrões de precipitação (chuva) em diferentes regiões? Em que escala temporal (diária, mensal, sazonal) essa relação é mais evidente, e quais os mecanismos físicos que a explicam?"
     ]
     
     for i, question in enumerate(questions):
