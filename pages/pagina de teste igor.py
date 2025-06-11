@@ -3,151 +3,274 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
-from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(layout="wide", page_title="Extremos Climáticos 🚨")
+st.set_page_config(layout="wide", page_title="Análise Climática Interativa 🌐🌡️")
 
-# CSS para estilização aprimorada do título e subtítulo
+# CSS para estilização aprimorada
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+html, body, [class*="st-"] {
+    font-family: 'Poppins', sans-serif;
+    color: #333333; /* Cor de texto padrão mais suave */
+}
+
 .stApp {
-    background-color: #f0f2f5; /* Fundo cinza claro */
+    background: linear-gradient(to right bottom, #e0f2f7, #ffffff); /* Gradiente suave de azul claro para branco */
 }
-.main-title-4 {
-    font-size: 3.2em;
+
+.main-title-5 {
+    font-size: 3.8em; /* Tamanho maior para o título principal */
     font-weight: 700;
-    color: #CC0000; /* Vermelho forte para extremos */
+    color: #007BFF; /* Azul vibrante */
     text-align: center;
-    margin-bottom: 0.5em;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 0.2em; /* Espaçamento menor */
+    text-shadow: 3px 3px 6px rgba(0,0,0,0.15); /* Sombra mais pronunciada */
+    letter-spacing: 1px; /* Leve espaçamento entre letras */
 }
-.subtitle-4 {
-    font-size: 1.6em;
-    color: #E65100; /* Laranja escuro */
+.subtitle-5 {
+    font-size: 1.8em; /* Subtítulo um pouco maior */
+    color: #28A745; /* Verde para contrastar e remeter a natureza/clima */
     text-align: center;
     margin-top: -0.5em;
-    margin-bottom: 1.5em;
+    margin-bottom: 2em; /* Mais espaçamento abaixo */
+    font-weight: 600;
 }
-.header-section-4 {
-    background: linear-gradient(135deg, #FFD180 0%, #FFAB40 100%); /* Gradiente de laranja */
-    padding: 1.8em;
-    border-radius: 12px;
-    margin-bottom: 2em;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    border: 1px solid #FF8F00;
+.header-section-5 {
+    background: linear-gradient(135deg, #BBDEFB 0%, #90CAF9 100%); /* Gradiente azul claro/médio para o cabeçalho */
+    padding: 2.5em; /* Mais preenchimento */
+    border-radius: 20px; /* Bordas mais arredondadas */
+    margin-bottom: 2.5em; /* Mais espaçamento inferior */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); /* Sombra mais forte */
+    border: 2px solid #64B5F6; /* Borda sutil */
+}
+
+.stSidebar .stSelectbox, .stSidebar .stMultiSelect {
+    font-weight: 600;
+    color: #0056b3; /* Cor de texto para os labels do sidebar */
+}
+
+h2 {
+    color: #0056b3; /* Azul escuro para títulos de seção */
+    border-bottom: 2px solid #ADD8E6; /* Linha sutil abaixo dos títulos */
+    padding-bottom: 0.5em;
+    margin-top: 2em;
+}
+
+.stInfo {
+    background-color: #e0f7fa; /* Fundo mais suave para st.info */
+    border-left: 5px solid #00BCD4; /* Borda de destaque */
+    padding: 1em;
+    border-radius: 8px;
+}
+
+.stWarning {
+    background-color: #fff3cd;
+    border-left: 5px solid #ffc107;
+    padding: 1em;
+    border-radius: 8px;
+}
+
+.stButton>button {
+    background-color: #28a745;
+    color: white;
+    border-radius: 8px;
+    padding: 0.5em 1em;
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Caminho relativo ao arquivo CSV
-caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
-
-# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+# --- OTIMIZAÇÃO: Função para carregar e cachear os dados ---
 @st.cache_data
 def carregar_dados(caminho):
-    """Carrega e processa o arquivo de dados climáticos."""
+    """
+    Carrega os dados do arquivo CSV, realiza cálculos iniciais e o retorna.
+    O uso de @st.cache_data acelera o app, evitando recarregar o arquivo a cada interação.
+    """
     df = pd.read_csv(caminho)
-
-    # Converte colunas para numérico, tratando erros
-    for col in ['Mês', 'Ano', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-                 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-                 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-                 'VENTO, RAJADA MAXIMA (m/s)']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    df = df.dropna(subset=['Mês', 'Ano'])
+    # Calcula a média da temperatura se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temperatura Média (°C)'] = (
+            df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
+            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
+        ) / 2
+    # Garante que as colunas importantes são numéricas
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano', 'Regiao'])
     return df
 
-# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
+    # Caminho relativo ao arquivo CSV
+    caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS E NOVO ESTILO ---
-    st.markdown('<div class="header-section-4">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title-4">Análise de Extremos Climáticos Regionais do Brasil 🚨⚠️</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle-4">Explorando Picos e Vales nos Dados Climáticos (2020-2025) 🌡️💨🌧️</p>', unsafe_allow_html=True)
+    # --- TÍTULO PRINCIPAL ATRAENTE ---
+    st.markdown('<div class="header-section-5">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title-5">Análise Climática Interativa por Região 🌐🌡️</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-5">Desvende os Padrões Climáticos do Brasil (2020-2025)! 🇧🇷✨</p>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- INTERFACE DO USUÁRIO ---
-    st.sidebar.header("Filtros de Visualização ⚙️")
-    
-    regioes = sorted(df_unificado['Regiao'].unique())
-    anos = sorted(df_unificado['Ano'].unique())
+    # --- MELHORIA: Filtros interativos na barra lateral ---
+    st.sidebar.header("Filtros de Visualização 🔍")
 
-    # Dropdown para selecionar a variável de extremo
-    variaveis_extremo = {
-        'Temperatura Máxima (°C)': 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-        'Temperatura Mínima (°C)': 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-        'Rajada Máxima de Vento (m/s)': 'VENTO, RAJADA MAXIMA (m/s)'
-    }
-    nome_var_extremo = st.sidebar.selectbox("Selecione a Variável de Extremo:", list(variaveis_extremo.keys()))
-    coluna_var_extremo = variaveis_extremo[nome_var_extremo]
-    unidade_var_extremo = nome_var_extremo.split('(')[-1].replace(')', '') if '(' in nome_var_extremo else ''
+    # Listas para os filtros
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    anos_disponiveis = sorted(df_unificado['Ano'].unique().astype(int))
 
-    # Slider para selecionar os anos
-    ano_inicio, ano_fim = st.sidebar.select_slider(
-        "Selecione o Intervalo de Anos:",
-        options=anos,
-        value=(min(anos), max(anos))
+    # Filtro de Regiões
+    regioes_selecionadas = st.sidebar.multiselect(
+        "Selecione as Regiões:",
+        options=regioes_disponiveis,
+        default=regioes_disponiveis[:2]  # Seleciona as duas primeiras regiões por padrão
     )
-    df_filtrado_ano = df_unificado[(df_unificado['Ano'] >= ano_inicio) & (df_unificado['Ano'] <= ano_fim)]
 
-    st.markdown("---")
+    # Filtro de Anos
+    anos_selecionados = st.sidebar.multiselect(
+        "Selecione os Anos:",
+        options=anos_disponiveis,
+        default=anos_disponiveis # Todos os anos selecionados por padrão
+    )
+    
+    # Filtro de Variável
+    variaveis = {
+        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)',
+        'Temperatura Média (°C)': 'Temperatura Média (°C)',
+        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+    }
+    nome_var = st.sidebar.selectbox(
+        "Selecione a Variável:",
+        options=list(variaveis.keys())
+    )
+    coluna_var = variaveis[nome_var]
 
-    # --- ANÁLISE DE EXTREMOS CLIMÁTICOS POR REGIÃO ---
-    st.header(f"Valores Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📈")
-    st.write(f"Esta seção apresenta os valores **máximos** (ou mínimos, para temperatura mínima) registrados para a variável selecionada em cada região, dentro do período de tempo escolhido. Descubra quais regiões experimentaram as condições mais extremas! ")
+    # Validação para evitar erros se nenhuma região ou ano for selecionado
+    if not regioes_selecionadas or not anos_selecionados:
+        st.warning("Por favor, selecione **pelo menos uma região e um ano** para exibir os dados. ⚠️")
+        st.stop()
+    
+    # Validação da existência da coluna da variável
+    if coluna_var not in df_unificado.columns:
+        st.error(f"A coluna **'{coluna_var}'** para a variável **'{nome_var}'** não foi encontrada no arquivo. Verifique se o nome está correto. 😔")
+        st.stop()
 
-    # Agrupando por região para encontrar os valores extremos
-    if "Mínima" in nome_var_extremo: # Para temperatura mínima, queremos o menor valor
-        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].min().reset_index()
-    else: # Para as outras variáveis, queremos o maior valor
-        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].max().reset_index()
+    # Filtra o DataFrame principal com base nas seleções do usuário
+    df_filtrado = df_unificado[
+        df_unificado['Regiao'].isin(regioes_selecionadas) &
+        df_unificado['Ano'].isin(anos_selecionados)
+    ]
 
-    if not df_extremos_regionais.empty:
-        # Renomeando a coluna para melhor exibição
-        df_extremos_regionais.rename(columns={coluna_var_extremo: f'{nome_var_extremo} Extremo'}, inplace=True)
-        
-        st.dataframe(df_extremos_regionais.sort_values(by=f'{nome_var_extremo} Extremo', ascending=False).set_index('Regiao').style.format("{:.2f}"))
+    # --- Gráfico Principal ---
+    st.header(f"Tendências Mensais de {nome_var} por Região 📈")
+    st.markdown(f"""
+        Explore como a **{nome_var}** varia ao longo dos meses em diferentes regiões do Brasil.
+        Cada linha no gráfico representa um ano diferente, permitindo identificar padrões sazonais e anomalias.
+        Use os filtros na barra lateral para personalizar sua análise!
+    """)
 
-        # Gráfico de barras para os extremos
-        fig_extremo, ax_extremo = plt.subplots(figsize=(12, 6))
-        ax_extremo.bar(df_extremos_regionais['Regiao'], df_extremos_regionais[f'{nome_var_extremo} Extremo'], color='#FF7043') # Um tom de laranja/vermelho
-        ax_extremo.set_title(f'{nome_var_extremo} Extremo por Região', fontsize=16)
-        ax_extremo.set_xlabel('Região', fontsize=12)
-        ax_extremo.set_ylabel(f'{nome_var_extremo} ({unidade_var_extremo})', fontsize=12)
-        ax_extremo.tick_params(axis='x', rotation=45)
-        ax_extremo.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        st.pyplot(fig_extremo)
+    # --- ALTERAÇÃO: Cor do gráfico modificada para 'plasma' ---
+    cmap = plt.get_cmap('viridis') # Mudei para viridis, que é mais acessível e agradável
+    cores_anos = {ano: cmap(i / len(anos_selecionados)) for i, ano in enumerate(anos_selecionados)}
+
+    # Criação do grid de gráficos dinamicamente
+    n_cols = 3
+    n_rows = int(np.ceil(len(regioes_selecionadas) / n_cols))
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5 * n_cols, 4 * n_rows), sharey=True, squeeze=False)
+    axes = axes.flatten()
+
+    for i, regiao in enumerate(regioes_selecionadas):
+        ax = axes[i]
+        df_regiao_filtrada = df_filtrado[df_filtrado['Regiao'] == regiao]
+        for ano in anos_selecionados:
+            df_ano_regiao = df_regiao_filtrada[df_regiao_filtrada['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
+            if not df_ano_regiao.empty:
+                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
+        ax.set_title(regiao, fontsize=14, color='#333333') # Cor do título do subplot
+        ax.set_xlabel('Mês', fontsize=10)
+        if i % n_cols == 0:
+            ax.set_ylabel(nome_var, fontsize=10)
+        ax.set_xticks(range(1, 13))
+        ax.grid(True, linestyle='--', alpha=0.6)
+
+    # Remove eixos vazios
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    # Criação da legenda unificada
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.08, 0.95)) # Ajuste da posição da legenda
+    plt.tight_layout(rect=[0, 0, 0.95, 1]) # Ajuste do layout para acomodar a legenda
+    st.pyplot(fig)
+
+    # --- Seções de Análise (só aparecem se a variável for Radiação Global) ---
+    if nome_var == 'Radiação Global (Kj/m²)':
+        st.markdown("---")
+        st.header("Análise Detalhada da Radiação Global ☀️")
+        st.markdown("""
+            Mergulhe mais fundo nos dados de **Radiação Global**!
+            Aqui você encontra os valores extremos registrados e a média sazonal, revelando insights cruciais.
+        """)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Análise de Extremos
+            st.subheader("Extremos de Radiação (Período Selecionado) 🚀")
+            if not df_filtrado[coluna_var].empty:
+                idx_max = df_filtrado[coluna_var].idxmax()
+                max_rad_data = df_filtrado.loc[idx_max]
+
+                idx_min = df_filtrado[coluna_var].idxmin()
+                min_rad_data = df_filtrado.loc[idx_min]
+                
+                st.info(f"**Máximo Registrado:** **{max_rad_data[coluna_var]:.2f} Kj/m²**\n"
+                                f"📍 {max_rad_data['Regiao']}, Mês {int(max_rad_data['Mês'])}, Ano {int(max_rad_data['Ano'])}")
+
+                st.info(f"**Mínimo Registrado:** **{min_rad_data[coluna_var]:.2f} Kj/m²**\n"
+                                f"📍 {min_rad_data['Regiao']}, Mês {int(min_rad_data['Mês'])}, Ano {int(min_rad_data['Ano'])}")
+            else:
+                st.write("Dados insuficientes para análise de extremos. 😔")
+
+        with col2:
+            # Análise Sazonal
+            st.subheader("Média Sazonal de Radiação 🏖️❄️")
+            meses_verao = [12, 1, 2] # Verão no Hemisfério Sul
+            meses_inverno = [6, 7, 8] # Inverno no Hemisfério Sul
+            
+            dados_sazonais = []
+            for regiao in regioes_selecionadas:
+                df_regiao_sazonal = df_filtrado[df_filtrado['Regiao'] == regiao]
+                media_verao = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_verao)][coluna_var].mean()
+                media_inverno = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_inverno)][coluna_var].mean()
+                dados_sazonais.append({
+                    'Região': regiao,
+                    'Média Verão (Kj/m²)': media_verao,
+                    'Média Inverno (Kj/m²)': media_inverno
+                })
+            
+            df_sazonais = pd.DataFrame(dados_sazonais)
+            st.dataframe(df_sazonais.round(2))
 
         st.markdown("---")
+        st.header("Por Que a Radiação Solar Importa? 💡")
+        st.markdown("""
+            A radiação solar é um fator climático fundamental com vastas implicações:
 
-        st.header("Insights e Hipóteses sobre Extremos Climáticos 🤔")
-        st.warning("🚨 **Aviso:** As 'hipóteses' abaixo são exploratórias e baseadas em um período de dados limitado (2020-2025). Para conclusões definitivas sobre mudanças climáticas e eventos extremos, são necessárias séries históricas de dados muito mais longas.")
+            -   **Energia Solar Sustentável:** Regiões com **picos de radiação** oferecem alto potencial para a instalação de painéis fotovoltaicos, impulsionando a **geração de energia limpa**.
+            -   **Vital para a Agricultura:** É a força motriz da **fotossíntese**, essencial para o crescimento das plantas. No entanto, o **excesso de radiação** pode levar a estresse hídrico e queima de culturas.
+            -   **Impacto no Clima e Meio Ambiente:** A radiação influencia diretamente a **temperatura** do ar e do solo, a **evaporação** de rios e reservatórios, e pode contribuir para a formação de **ilhas de calor urbanas**, afetando o bem-estar das cidades.
 
-        if "Temperatura Máxima" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais suscetível a **ondas de calor**.")
-            st.markdown(f"**Hipótese:** Se a tendência de aumento das temperaturas máximas se mantiver, regiões que já registram valores elevados podem experimentar um **aumento na frequência e intensidade de eventos de calor extremo**, impactando a saúde pública, a agricultura e o consumo de energia.")
-        elif "Temperatura Mínima" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o menor valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais propensa a **períodos de frio intenso**.")
-            st.markdown(f"**Hipótese:** Regiões com temperaturas mínimas historicamente baixas podem enfrentar **desafios para a agricultura (geadas)** e para a infraestrutura, caso esses valores se tornem ainda mais extremos ou ocorram com maior frequência.")
-        elif "Precipitação Total" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode estar mais exposta a **chuvas intensas**.")
-            st.markdown(f"**Hipótese:** A ocorrência de eventos de precipitação extrema pode indicar uma **maior propensão a inundações, deslizamentos de terra e interrupções em serviços essenciais** em certas regiões, exigindo planejamento urbano e medidas de contenção de riscos.")
-        elif "Rajada Máxima de Vento" in nome_var_extremo:
-            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode experimentar **ventos mais fortes e potencialmente destrutivos**.")
-            st.markdown(f"**Hipótese:** Ventos de alta velocidade podem causar **danos à infraestrutura, queda de árvores e interrupção no fornecimento de energia**. Regiões com registros elevados podem necessitar de estruturas mais resilientes e sistemas de alerta para a população.")
-
-    else:
-        st.info("Não há dados de extremos disponíveis para a variável e o período selecionados. 😔 Tente ajustar os filtros!")
+            Entender esses padrões é crucial para o planejamento energético, agrícola e urbano do Brasil!
+        """)
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a localização do arquivo. 📁")
-except KeyError as e:
-    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada. 🧐")
+    st.error(f"Erro: O arquivo **'{caminho_arquivo_unificado}'** não foi encontrado. Por favor, verifique o caminho e a localização do arquivo em seu projeto. 😔")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado durante a execução: {e} 🐛")
+    st.error(f"Ocorreu um erro inesperado ao carregar ou processar os dados: **{e}** 🐛 Por favor, tente novamente ou contate o suporte.")
+
+st.markdown("---")
+st.write("Feito com ❤️ para uma análise climática mais inteligente.")
