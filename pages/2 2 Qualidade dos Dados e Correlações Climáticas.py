@@ -4,17 +4,48 @@ import streamlit as st
 import os
 import numpy as np # Importar numpy para cálculos numéricos
 
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide", page_title="Médias Mensais Regionais 📈")
+
+# CSS para estilização aprimorada do título e subtítulo
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title-2 {
+    font-size: 3.2em;
+    font-weight: 700;
+    color: #007BFF; /* Um azul vibrante */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle-2 {
+    font-size: 1.6em;
+    color: #1E90FF; /* Um azul um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section-2 {
+    background-color: #e0f2f7; /* Fundo levemente azul para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Caminho relativo ao arquivo CSV dentro do projeto
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
-
-st.title("Médias Mensais Regionais (2020-2025) - Visualização por Região e Variável")
 
 try:
     # Ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
 
     # --- CALCULA A TEMPERATURA MÉDIA SE AS COLUNAS DE MAX/MIN EXISTIREM ---
-    # Isso resolve o erro 'Temp_Maxima' se a Temp_Media não estiver direto
     if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
        'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
         df_unificado['Temp_Media'] = (
@@ -30,6 +61,20 @@ try:
     df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
     df_unificado = df_unificado.dropna(subset=['Mês'])
 
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
+    st.markdown('<div class="header-section-2">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title-2">Médias Mensais Regionais por Variável 📊🌍</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-2">Análise Climática Detalhada (2020-2025) 📈</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.header("Selecione os Parâmetros para Análise 🧐")
+    st.markdown("""
+        Utilize os seletores abaixo para escolher a **região** e a **variável climática**
+        que você deseja visualizar. O gráfico mostrará as tendências mensais ao longo dos anos
+        para sua seleção, além de uma linha da média histórica.
+        """)
+
     # Lista de regiões e anos únicas
     regioes = sorted(df_unificado['Regiao'].unique())
     anos = sorted(df_unificado['Ano'].unique())
@@ -40,7 +85,7 @@ try:
 
     # Variáveis a serem plotadas
     variaveis = {
-        'Temperatura Média (°C)': 'Temp_Media', # Agora 'Temp_Media' será calculada ou já deve existir
+        'Temperatura Média (°C)': 'Temp_Media',
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
         'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
@@ -57,7 +102,13 @@ try:
     # Filtra o DataFrame para a região selecionada
     df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
 
-    st.subheader(f"Média Mensal de {nome_var} na Região {regiao_selecionada} (2020-2025)")
+    st.subheader(f"Média Mensal de {nome_var} na Região {regiao_selecionada} (2020-2025) 📉")
+    st.markdown("""
+        Este gráfico de linhas exibe a **média mensal da variável selecionada** para a região escolhida,
+        com cada linha representando um ano diferente. A linha tracejada vermelha indica a
+        **média histórica mensal** para toda a série temporal (2020-2025), permitindo uma
+        comparação visual rápida das variações anuais em relação ao padrão de longo prazo.
+        """)
     fig, ax = plt.subplots(figsize=(10, 6)) # Aumentei um pouco o tamanho do gráfico
 
     # Dicionário para armazenar os valores anuais médios para análise de desvio
@@ -90,7 +141,12 @@ try:
     st.pyplot(fig)
 
     # --- Análise de Variabilidade Anual ---
-    st.subheader(f"Análise de Variabilidade Anual para {nome_var} na Região {regiao_selecionada}")
+    st.markdown("---")
+    st.subheader(f"Análise de Variabilidade Anual para {nome_var} na Região {regiao_selecionada} 🔬")
+    st.markdown("""
+        Esta seção detalha o quão atípico cada ano foi em relação à média histórica mensal para a variável e região selecionadas.
+        Um **maior desvio médio absoluto** indica que os valores daquele ano se afastaram mais do padrão usual para os respectivos meses.
+        """)
 
     # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
     desvios_absolutos_anuais = {}
@@ -113,9 +169,12 @@ try:
         if desvios_validos:
             ano_mais_atipico = max(desvios_validos, key=desvios_validos.get)
             maior_desvio = desvios_validos[ano_mais_atipico]
+            
+            # Extrair unidade da variável para exibir no texto
+            unidade_var = nome_var.split('(')[1].split(')')[0] if '(' in nome_var else ''
 
             st.write(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
-            st.write(f"- O ano de **{ano_mais_atipico}** se destaca como o mais atípico, com um desvio médio de **{maior_desvio:.2f} {nome_var.split('(')[1].split(')')[0] if '(' in nome_var else ''}** em relação à média histórica mensal (2020-2025).")
+            st.write(f"- O ano de **{ano_mais_atipico}** se destaca como o mais atípico, com um desvio médio de **{maior_desvio:.2f} {unidade_var}** em relação à média histórica mensal (2020-2025).")
             st.write(f"*(Um desvio maior indica que os valores daquele ano se afastaram mais da média para os respectivos meses.)*")
 
             st.write("\n**Desvios médios anuais em relação à média histórica (quanto maior, mais atípico):**")
