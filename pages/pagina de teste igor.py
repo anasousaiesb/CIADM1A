@@ -24,26 +24,23 @@ def carregar_dados(caminho):
     col_mapping = {
         'Hora UTC': 'Hora_UTC',
         'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'Precipitacao_Total_Horaria',
-        'PRESSAO ATMOSFERICA AO NIVEL DA ESTACAO, HORARIA (mB)': 'Pressao_Atmosferica_Horaria', # Keep if exists
-        'PRESSÃO ATMOSFERICA MAX.NA HORA ANT. (AUT) (mB)': 'Pressao_Maxima_Hora_Ant',      # Keep if exists
-        'PRESSÃO ATMOSFERICA MIN. NA HORA ANT. (AUT) (mB)': 'Pressao_Minima_Hora_Ant',      # Keep if exists
+        'PRESSAO ATMOSFERICA AO NIVEL DA ESTACAO, HORARIA (mB)': 'Pressao_Atmosferica_Horaria',
+        'PRESSÃO ATMOSFERICA MAX.NA HORA ANT. (AUT) (mB)': 'Pressao_Maxima_Hora_Ant',
+        'PRESSÃO ATMOSFERICA MIN. NA HORA ANT. (AUT) (mB)': 'Pressao_Minima_Hora_Ant',
         'RADIACAO GLOBAL (Kj/m²)': 'Radiacao_Global_Horaria',
         
-        # **Atenção aqui:** Se "TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)" NÃO existe,
-        # você precisa usar uma coluna de temperatura que exista.
-        # Baseado no seu prompt inicial, as temperaturas disponíveis são MÁXIMA e MÍNIMA.
-        # Vamos usar a média delas como uma proxy para a temperatura horária.
+        # Estas colunas são usadas para criar 'Temperatura_Bulbo_Seco_Horaria'
         'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Maxima_Hora_Ant',
         'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Minima_Hora_Ant',
         
-        # **Atenção aqui:** Se "UMIDADE RELATIVA DO AR, HORARIA (%)" NÃO existe no seu CSV,
-        # você PRECISA identificar a coluna de umidade correta ou remover a umidade da análise.
-        # Por enquanto, vou manter o nome esperado, mas se o erro persistir,
-        # o nome real da coluna de umidade no seu CSV é o problema.
-        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria',
+        # >>>>> ATENÇÃO AQUI: INSIRA O NOME EXATO DA COLUNA DE UMIDADE DO SEU CSV <<<<<
+        # EX: 'UMIDADE RELATIVA DO AR, HORARIA (%)'
+        # SE O NOME REAL FOR 'UMIDADE DO AR', MUDAR PARA: 'UMIDADE DO AR': 'Umidade_Relativa_Horaria',
+        # SE O NOME REAL FOR 'UMID_REL', MUDAR PARA: 'UMID_REL': 'Umidade_Relativa_Horaria',
+        'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria', # <-- SUBSTITUA ESTA CHAVE
         
-        'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',        # Keep if exists
-        'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria', # Keep if exists
+        'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',
+        'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria',
         
         'Regiao': 'Regiao',
         'Mês': 'Mês',
@@ -54,26 +51,15 @@ def carregar_dados(caminho):
     df = df.rename(columns={k: v for k, v in col_mapping.items() if k in df.columns})
 
     # --- Criação da coluna 'Data_Original' ---
-    # Se 'Data' não existe, precisamos criá-la a partir de 'Ano' e 'Mês'.
-    # Para permitir o agrupamento diário, vamos assumir o dia 1 do mês.
-    # **NOTA:** Se seus dados são de fato horários e vêm de um arquivo que
-    # tem uma coluna de data/hora completa, use essa coluna diretamente
-    # e ajuste o mapeamento.
-    
-    # Ensure 'Ano' and 'Mês' are available to construct a date
     if 'Ano' not in df.columns or 'Mês' not in df.columns:
         st.error("Erro Crítico: Colunas 'Ano' ou 'Mês' não encontradas para construir a data. Verifique os nomes das colunas em seu CSV.")
         st.stop()
     
-    # Creating a dummy 'Day' column for daily aggregation if not explicitly present, defaulting to 1
-    # This is important for .replace(hour=...) to work correctly later, assuming a full date is needed
-    if 'Dia' not in df.columns: # Assuming 'Dia' is not explicitly mapped or renamed
+    if 'Dia' not in df.columns: 
         df['Dia'] = 1 # Default to the first day of the month for all entries
 
-    # Construct Data_Original from Ano, Mês, and the (potentially dummy) Dia
     df['Data_Original'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['Mês'].astype(str) + '-' + df['Dia'].astype(str), errors='coerce')
 
-    # Now, combine 'Data_Original' and 'Hora_UTC' into a single complete timestamp
     if 'Hora_UTC' in df.columns:
         df['Hora_UTC'] = pd.to_numeric(df['Hora_UTC'], errors='coerce').fillna(0).astype(int)
         df['Data_Hora_Completa'] = df.apply(lambda row: row['Data_Original'].replace(hour=row['Hora_UTC']) if pd.notna(row['Data_Original']) else pd.NaT, axis=1)
@@ -82,23 +68,25 @@ def carregar_dados(caminho):
         df['Data_Hora_Completa'] = df['Data_Original']
 
     # --- Cálculo da Temperatura Horária Média a partir de Máx/Min ---
-    # Se 'Temperatura_Bulbo_Seco_Horaria' não existe, criamos uma proxy.
     if 'Temperatura_Maxima_Hora_Ant' in df.columns and 'Temperatura_Minima_Hora_Ant' in df.columns:
         df['Temperatura_Bulbo_Seco_Horaria'] = (df['Temperatura_Maxima_Hora_Ant'] + df['Temperatura_Minima_Hora_Ant']) / 2
     else:
         st.error("Erro: Colunas 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' ou 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' não encontradas para calcular a temperatura horária. Verifique seu CSV.")
         st.stop()
 
-    # Verificar se a coluna de umidade existe após o mapeamento
+    # --- VERIFICAÇÃO FINAL DA COLUNA DE UMIDADE ---
+    # Este é o ponto onde o erro provavelmente está ocorrendo novamente.
+    # A linha abaixo irá disparar um erro se 'Umidade_Relativa_Horaria' ainda não existir
+    # APÓS o rename.
     if 'Umidade_Relativa_Horaria' not in df.columns:
-        st.error("Erro: Coluna 'UMIDADE RELATIVA DO AR, HORARIA (%)' não encontrada. Por favor, verifique o nome exato da coluna de umidade no seu arquivo CSV.")
+        st.error("Erro: Coluna 'Umidade_Relativa_Horaria' não encontrada após o mapeamento. Por favor, verifique o nome exato da coluna de umidade no seu arquivo CSV e ajuste o 'col_mapping'.")
         st.stop()
     
     # Remover linhas com NaN em colunas críticas após conversão
     df = df.dropna(subset=[
         'Data_Hora_Completa', 'Regiao', 'Mês', 'Ano',
-        'Temperatura_Bulbo_Seco_Horaria', # Agora garantimos que ela existe
-        'Umidade_Relativa_Horaria',     # Agora garantimos que ela existe
+        'Temperatura_Bulbo_Seco_Horaria',
+        'Umidade_Relativa_Horaria',
         'Radiacao_Global_Horaria'
     ])
 
@@ -264,9 +252,8 @@ try:
             # --- GRÁFICO 2: DETALHES DO DIA MAIS ATÍPICO ---
             if not top_dias_atipicos.empty:
                 dia_mais_atipico = top_dias_atipicos.iloc[0]
-                mes_do_dia_mais_atipico = top_dias_atipicos.iloc[0]['Mês'] # Get month from df_dias_atipicos for clarity
+                mes_do_dia_mais_atipico = top_dias_atipicos.iloc[0]['Mês']
 
-                # Defining a dictionary to map month numbers to names (if needed)
                 meses_nome = {
                     1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
                     5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
@@ -287,16 +274,9 @@ try:
                     e umidade muito baixa, ambos desviando da média, terá um score alto.
                     """)
                 
-                # Data for the comparative chart
-                # Ensure medias_mes is correctly pulled
-                # The merge in calcular_score_atipicidade already added the monthly_medias
-                # So, we can directly get them from the dia_mais_atipico row
-                
-                # Retrieve the historical monthly averages from the original `df_dias_atipicos`
-                # which has the `Temp_Media_Mensal` etc. columns
                 monthly_historical_data = df_dias_atipicos[
                     (df_dias_atipicos['Mês'] == mes_do_dia_mais_atipico)
-                ].iloc[0] # Take the first row for this month as it contains the monthly averages
+                ].iloc[0] 
 
                 medias_mes = [
                     monthly_historical_data['Temp_Media_Mensal'],
@@ -326,7 +306,6 @@ try:
                 ax3.legend()
                 ax3.grid(axis='y', linestyle='--', alpha=0.6)
 
-                # Add values on bars
                 for bar in bars_dia:
                     height = bar.get_height()
                     ax3.text(bar.get_x() + bar.get_width()/2, height, f'{height:.1f}', ha='center', va='bottom', fontsize=9)
@@ -342,7 +321,6 @@ try:
 except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
-    # Captures the specific KeyError and tries to give a more friendly message
-    st.error(f"Erro de Coluna: Uma das colunas esperadas não foi encontrada ou o nome está incorreto: '{e}'. Por favor, verifique se o seu arquivo CSV contém as colunas necessárias e se os nomes estão exatos (incluindo maiúsculas/minúsculas e espaços). As colunas críticas são: 'Ano', 'Mês', 'Regiao', 'Hora UTC' (opcional), 'RADIACAO GLOBAL (Kj/m²)', 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)', 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)', 'UMIDADE RELATIVA DO AR, HORARIA (%)' (ou o nome real da sua coluna de umidade).")
+    st.error(f"Erro de Coluna: Uma das colunas esperadas não foi encontrada ou o nome está incorreto: '{e}'. Por favor, verifique se o seu arquivo CSV contém as colunas necessárias e se os nomes estão exatos (incluindo maiúsculas/minúsculas e espaços). As colunas críticas são: 'Ano', 'Mês', 'Regiao', 'Hora UTC' (opcional), 'RADIACAO GLOBAL (Kj/m²)', 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)', 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)', e a coluna de UMIDADE (o nome real em seu CSV).")
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
