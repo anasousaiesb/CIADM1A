@@ -4,13 +4,19 @@ import streamlit as st
 import os
 
 # Caminho relativo ao arquivo CSV dentro do projeto
+# Certifique-se de que este arquivo existe e está no caminho correto
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_temp_media_completo.csv")
 
 st.title("Médias Mensais Regionais (2020-2025) - Visualização por Região e Variável")
 
 try:
-    # Ler o arquivo unificado
+    # Tenta ler o arquivo unificado
     df_unificado = pd.read_csv(caminho_arquivo_unificado)
+
+    # Verifica se o DataFrame está vazio após a leitura (pode acontecer se o CSV estiver vazio ou mal formatado)
+    if df_unificado.empty:
+        st.warning("O arquivo foi lido, mas não contém dados ou está vazio.")
+        st.stop() # Interrompe a execução para evitar erros posteriores
 
     # Lista de regiões e anos únicas
     regioes = sorted(df_unificado['Regiao'].unique())
@@ -30,6 +36,11 @@ try:
     # Seleção interativa da variável
     nome_var = st.selectbox("Selecione a variável para visualizar:", list(variaveis.keys()))
     coluna_var = variaveis[nome_var]
+
+    # Verifica se a coluna selecionada existe no DataFrame
+    if coluna_var not in df_unificado.columns:
+        st.error(f"Erro: A coluna '{coluna_var}' para '{nome_var}' não foi encontrada no arquivo CSV.")
+        st.stop() # Interrompe a execução
 
     # Cores para os anos
     from matplotlib.cm import get_cmap
@@ -55,8 +66,11 @@ try:
     st.pyplot(fig)
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+    # Mensagem de erro clara para o usuário se o arquivo não for encontrado
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique se o arquivo está no local correto e se o nome está exato.")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV.")
+    # Mensagem de erro para colunas ausentes
+    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o cabeçalho do seu arquivo CSV corresponde às colunas esperadas (ex: 'Regiao', 'Ano', 'Mês', 'Temp_Media', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)', 'RADIACAO GLOBAL (Kj/m²)').")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    # Mensagem de erro genérica para outros problemas
+    st.error(f"Ocorreu um erro inesperado ao gerar os gráficos: {e}")
