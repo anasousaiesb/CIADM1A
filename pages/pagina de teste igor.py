@@ -2,203 +2,158 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 import os
-import numpy as np # Importar numpy para cálculos numéricos
+import numpy as np
+from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(layout="wide", page_title="Médias Mensais Regionais 📈")
+st.set_page_config(layout="wide", page_title="Análise de Extremos Climáticos ⚠️")
 
 # CSS para estilização aprimorada do título e subtítulo
 st.markdown("""
 <style>
-.stApp {
-    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+html, body, [class*="st-"] {
+    font-family: 'Montserrat', sans-serif;
 }
-.main-title-2 {
+
+.stApp {
+    background-color: #f0f2f5; /* Fundo cinza claro */
+}
+.main-title-3 {
     font-size: 3.2em;
     font-weight: 700;
-    color: #007BFF; /* Um azul vibrante */
+    color: #D32F2F; /* Vermelho escuro para destaque de 'extremos' */
     text-align: center;
     margin-bottom: 0.5em;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
 }
-.subtitle-2 {
+.subtitle-3 {
     font-size: 1.6em;
-    color: #1E90FF; /* Um azul um pouco mais claro */
+    color: #FF5722; /* Laranja vibrante */
     text-align: center;
     margin-top: -0.5em;
     margin-bottom: 1.5em;
 }
-.header-section-2 {
-    background-color: #e0f2f7; /* Fundo levemente azul para a seção de cabeçalho */
-    padding: 1.5em;
-    border-radius: 10px;
+.header-section-3 {
+    background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%); /* Gradiente laranja suave */
+    padding: 1.8em;
+    border-radius: 12px;
     margin-bottom: 2em;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    border: 1px solid #FFAB40;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Caminho relativo ao arquivo CSV dentro do projeto
+# Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+@st.cache_data
+def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
+    df = pd.read_csv(caminho)
+
+    # Converte colunas para numérico, tratando erros
+    for col in ['Mês', 'Ano', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+                 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
+                 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
+                 'VENTO, RAJADA MAXIMA (m/s)']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    df = df.dropna(subset=['Mês', 'Ano'])
+    return df
+
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
-    # Ler o arquivo unificado
-    df_unificado = pd.read_csv(caminho_arquivo_unificado)
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # --- CALCULA A TEMPERATURA MÉDIA SE AS COLUNAS DE MAX/MIN EXISTIREM ---
-    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns and \
-       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df_unificado.columns:
-        df_unificado['Temp_Media'] = (
-            df_unificado['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-            df_unificado['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
-        ) / 2
-    elif 'Temp_Media' not in df_unificado.columns: # Se não tem max/min E não tem Temp_Media, levanta erro
-        st.error("Erro: O arquivo CSV não contém a coluna 'Temp_Media' nem as colunas 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para calcular a temperatura média.")
-        st.stop() # Para a execução do script
-    # --- FIM DO CÁLCULO DA TEMPERATURA MÉDIA ---
-
-    # Certificar-se de que a coluna 'Mês' é numérica
-    df_unificado['Mês'] = pd.to_numeric(df_unificado['Mês'], errors='coerce')
-    df_unificado = df_unificado.dropna(subset=['Mês'])
-
-    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
-    st.markdown('<div class="header-section-2">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title-2">Médias Mensais Regionais por Variável 📊🌍</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle-2">Análise Climática Detalhada (2020-2025) 📈</p>', unsafe_allow_html=True)
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS E NOVO ESTILO ---
+    st.markdown('<div class="header-section-3">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title-3">Análise de Extremos Climáticos Regionais do Brasil ⚠️🌪️</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-3">Desvendando Picos e Vales nos Dados Climáticos (2020-2025) 🌡️🌧️</p>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.header("Selecione os Parâmetros para Análise 🧐")
-    st.markdown("""
-        Utilize os seletores abaixo para escolher a **região** e a **variável climática**
-        que você deseja visualizar. O gráfico mostrará as tendências mensais ao longo dos anos
-        para sua seleção, além de uma linha da média histórica.
-        """)
-
-    # Lista de regiões e anos únicas
+    # --- INTERFACE DO USUÁRIO ---
+    st.sidebar.header("Filtros de Visualização ⚙️")
+    
     regioes = sorted(df_unificado['Regiao'].unique())
     anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique()) # Garante que os meses estão ordenados corretamente
 
-    # Seleção interativa da região
-    regiao_selecionada = st.selectbox("Selecione a região para visualizar:", regioes)
-
-    # Variáveis a serem plotadas
-    variaveis = {
-        'Temperatura Média (°C)': 'Temp_Media',
+    # Dropdown para selecionar a variável de extremo
+    variaveis_extremo = {
+        'Temperatura Máxima (°C)': 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
+        'Temperatura Mínima (°C)': 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
+        'Rajada Máxima de Vento (m/s)': 'VENTO, RAJADA MAXIMA (m/s)'
     }
+    nome_var_extremo = st.sidebar.selectbox("Selecione a Variável de Extremo:", list(variaveis_extremo.keys()))
+    coluna_var_extremo = variaveis_extremo[nome_var_extremo]
+    unidade_var_extremo = nome_var_extremo.split('(')[-1].replace(')', '') if '(' in nome_var_extremo else ''
 
-    # Seleção interativa da variável
-    nome_var = st.selectbox("Selecione a variável para visualizar:", list(variaveis.keys()))
-    coluna_var = variaveis[nome_var]
+    # Slider para selecionar os anos
+    ano_inicio, ano_fim = st.sidebar.select_slider(
+        "Selecione o Intervalo de Anos:",
+        options=anos,
+        value=(min(anos), max(anos))
+    )
+    df_filtrado_ano = df_unificado[(df_unificado['Ano'] >= ano_inicio) & (df_unificado['Ano'] <= ano_fim)]
 
-    # Cores para os anos
-    from matplotlib.cm import get_cmap
-    cmap = get_cmap('viridis')
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
-
-    # Filtra o DataFrame para a região selecionada
-    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
-
-    st.subheader(f"Média Mensal de {nome_var} na Região {regiao_selecionada} (2020-2025) 📉")
-    st.markdown("""
-        Este gráfico de linhas exibe a **média mensal da variável selecionada** para a região escolhida,
-        com cada linha representando um ano diferente. A linha tracejada vermelha indica a
-        **média histórica mensal** para toda a série temporal (2020-2025), permitindo uma
-        comparação visual rápida das variações anuais em relação ao padrão de longo prazo.
-        """)
-    fig, ax = plt.subplots(figsize=(10, 6)) # Aumentei um pouco o tamanho do gráfico
-
-    # Dicionário para armazenar os valores anuais médios para análise de desvio
-    valores_anuais_por_mes = {}
-
-    for ano in anos:
-        df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
-        if not df_ano_regiao.empty:
-            ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano))
-            valores_anuais_por_mes[ano] = df_ano_regiao.values
-        else:
-            valores_anuais_por_mes[ano] = np.full(len(meses), np.nan) # Preenche com NaN se não houver dados
-
-    # Calcula a média histórica mensal para a variável e região selecionadas
-    # Converte o dicionário para um DataFrame para facilitar o cálculo da média
-    df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=meses)
-    media_historica_mensal = df_valores_anuais.mean(axis=1)
-
-    # Adiciona a linha da média histórica ao gráfico
-    ax.plot(meses, media_historica_mensal.values, linestyle='--', color='red', label='Média Histórica (2020-2025)', linewidth=2)
-
-
-    ax.set_title(f'Média Mensal de {nome_var} - {regiao_selecionada} (2020-2025)')
-    ax.set_xlabel('Mês')
-    ax.set_ylabel(nome_var)
-    ax.set_xticks(meses)
-    ax.grid(True)
-    ax.legend(title='Ano')
-    plt.tight_layout()
-    st.pyplot(fig)
-
-    # --- Análise de Variabilidade Anual ---
     st.markdown("---")
-    st.subheader(f"Análise de Variabilidade Anual para {nome_var} na Região {regiao_selecionada} 🔬")
-    st.markdown("""
-        Esta seção detalha o quão atípico cada ano foi em relação à média histórica mensal para a variável e região selecionadas.
-        Um **maior desvio médio absoluto** indica que os valores daquele ano se afastaram mais do padrão usual para os respectivos meses.
-        """)
 
-    # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
-    desvios_absolutos_anuais = {}
-    for ano in anos:
-        # Pega os valores do ano, ignora NaNs se houver
-        valores_ano = df_valores_anuais[ano].dropna()
-        media_historica_correspondente = media_historica_mensal[~df_valores_anuais[ano].isna()]
+    # --- ANÁLISE DE EXTREMOS CLIMÁTICOS POR REGIÃO ---
+    st.header(f"Valores Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📊")
+    st.write(f"Esta seção apresenta os valores **máximos** (ou mínimos, para temperatura mínima) registrados para a variável selecionada em cada região, dentro do período de tempo escolhido. Descubra quais regiões experimentaram as condições mais extremas! ")
 
-        if not valores_ano.empty:
-            # Calcula o desvio mês a mês e então a média dos desvios absolutos
-            desvios = np.abs(valores_ano - media_historica_correspondente)
-            desvios_absolutos_anuais[ano] = desvios.mean()
-        else:
-            desvios_absolutos_anuais[ano] = np.nan
+    # Agrupando por região para encontrar os valores extremos
+    if "Mínima" in nome_var_extremo: # Para temperatura mínima, queremos o menor valor
+        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].min().reset_index()
+    else: # Para as outras variáveis, queremos o maior valor
+        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].max().reset_index()
 
-    # Identifica o ano mais atípico (maior desvio absoluto médio)
-    if desvios_absolutos_anuais:
-        # Filtra NaNs para encontrar o máximo
-        desvios_validos = {k: v for k, v in desvios_absolutos_anuais.items() if not np.isnan(v)}
-        if desvios_validos:
-            ano_mais_atipico = max(desvios_validos, key=desvios_validos.get)
-            maior_desvio = desvios_validos[ano_mais_atipico]
-            
-            # Extrair unidade da variável para exibir no texto
-            unidade_var = nome_var.split('(')[1].split(')')[0] if '(' in nome_var else ''
+    if not df_extremos_regionais.empty:
+        # Renomeando a coluna para melhor exibição
+        df_extremos_regionais.rename(columns={coluna_var_extremo: f'{nome_var_extremo} Extremo'}, inplace=True)
+        
+        st.dataframe(df_extremos_regionais.sort_values(by=f'{nome_var_extremo} Extremo', ascending=False).set_index('Regiao').style.format("{:.2f}"))
 
-            st.write(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
-            st.write(f"- O ano de **{ano_mais_atipico}** se destaca como o mais atípico, com um desvio médio de **{maior_desvio:.2f} {unidade_var}** em relação à média histórica mensal (2020-2025).")
-            st.write(f"*(Um desvio maior indica que os valores daquele ano se afastaram mais da média para os respectivos meses.)*")
+        # Gráfico de barras para os extremos
+        fig_extremo, ax_extremo = plt.subplots(figsize=(12, 6))
+        ax_extremo.bar(df_extremos_regionais['Regiao'], df_extremos_regionais[f'{nome_var_extremo} Extremo'], color='#FF7043') # Um tom de laranja/vermelho
+        ax_extremo.set_title(f'{nome_var_extremo} Extremo por Região', fontsize=16)
+        ax_extremo.set_xlabel('Região', fontsize=12)
+        ax_extremo.set_ylabel(f'{nome_var_extremo} ({unidade_var_extremo})', fontsize=12)
+        ax_extremo.tick_params(axis='x', rotation=45)
+        ax_extremo.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        st.pyplot(fig_extremo)
 
-            st.write("\n**Desvios médios anuais em relação à média histórica (quanto maior, mais atípico):**")
-            desvios_df = pd.DataFrame.from_dict(desvios_absolutos_anuais, orient='index', columns=['Desvio Médio Absoluto'])
-            st.dataframe(desvios_df.sort_values(by='Desvio Médio Absoluto', ascending=False).round(2))
+        st.markdown("---")
 
-            st.markdown(f"**Implicações:**")
-            if nome_var == 'Temperatura Média (°C)':
-                st.markdown("- **Temperaturas atipicamente altas:** Podem indicar ondas de calor, impactando a saúde humana, agricultura (estresse hídrico), consumo de energia (ar-condicionado) e ecossistemas. Podem também indicar uma tendência de aquecimento ou um evento climático anômalo como El Niño/La Niña intensos.")
-                st.markdown("- **Temperaturas atipicamente baixas:** Podem indicar geadas (prejudiciais à agricultura), maior demanda por aquecimento, e podem estar ligadas a massas de ar frio ou eventos climáticos específicos.")
-            elif nome_var == 'Precipitação Total (mm)':
-                st.markdown("- **Precipitação atipicamente alta:** Pode causar inundações, deslizamentos de terra, perdas agrícolas (colheitas danificadas), e sobrecarga em infraestruturas de saneamento. Beneficia reservatórios, mas de forma descontrolada pode ser destrutiva.")
-                st.markdown("- **Precipitação atipicamente baixa:** Pode levar a secas, escassez hídrica (impactando abastecimento e energia hidrelétrica), incêndios florestais e perdas significativas na agricultura e pecuária. Pode indicar uma situação de estiagem prolongada.")
-            elif nome_var == 'Radiação Global (Kj/m²)':
-                st.markdown("- **Radiação atipicamente alta:** Pode beneficiar a geração de energia solar, mas também pode indicar dias com menos cobertura de nuvens, possivelmente associados a períodos de seca ou temperaturas elevadas. Importante para o balanço energético da superfície.")
-                st.markdown("- **Radiação atipicamente baixa:** Sugere maior nebulosidade ou menor insolação, o que pode impactar a produtividade de culturas que dependem de luz e a eficiência de sistemas solares. Pode estar ligada a períodos chuvosos ou de maior cobertura de nuvens.")
-        else:
-            st.write("Dados insuficientes para calcular desvios para todos os anos.")
+        st.header("Insights e Hipóteses sobre Extremos Climáticos 🤔")
+        st.warning("🚨 **Aviso:** As 'hipóteses' abaixo são exploratórias e baseadas em um período de dados limitado (2020-2025). Para conclusões definitivas sobre mudanças climáticas e eventos extremos, são necessárias séries históricas de dados muito mais longas.")
+
+        if "Temperatura Máxima" in nome_var_extremo:
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais suscetível a **ondas de calor**.")
+            st.markdown(f"**Hipótese:** Se a tendência de aumento das temperaturas máximas se mantiver, regiões que já registram valores elevados podem experimentar um **aumento na frequência e intensidade de eventos de calor extremo**, impactando a saúde pública, a agricultura e o consumo de energia.")
+        elif "Temperatura Mínima" in nome_var_extremo:
+            st.markdown(f"**Observação:** A Região com o menor valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode ser mais propensa a **períodos de frio intenso**.")
+            st.markdown(f"**Hipótese:** Regiões com temperaturas mínimas historicamente baixas podem enfrentar **desafios para a agricultura (geadas)** e para a infraestrutura, caso esses valores se tornem ainda mais extremos ou ocorram com maior frequência.")
+        elif "Precipitação Total" in nome_var_extremo:
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode estar mais exposta a **chuvas intensas**.")
+            st.markdown(f"**Hipótese:** A ocorrência de eventos de precipitação extrema pode indicar uma **maior propensão a inundações, deslizamentos de terra e interrupções em serviços essenciais** em certas regiões, exigindo planejamento urbano e medidas de contenção de riscos.")
+        elif "Rajada Máxima de Vento" in nome_var_extremo:
+            st.markdown(f"**Observação:** A Região com o maior valor de **{nome_var_extremo}** ({df_extremos_regionais.iloc[0]['Regiao']} com {df_extremos_regionais.iloc[0][f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) pode experimentar **ventos mais fortes e potencialmente destrutivos**.")
+            st.markdown(f"**Hipótese:** Ventos de alta velocidade podem causar **danos à infraestrutura, queda de árvores e interrupção no fornecimento de energia**. Regiões com registros elevados podem necessitar de estruturas mais resilientes e sistemas de alerta para a população.")
+
     else:
-        st.write("Não há dados suficientes para realizar a análise de variabilidade anual.")
+        st.info("Não há dados de extremos disponíveis para a variável e o período selecionados. 😔 Tente ajustar os filtros!")
 
 except FileNotFoundError:
-    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado.")
+    st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a localização do arquivo. 📁")
 except KeyError as e:
-    st.error(f"Erro: A coluna '{e}' não foi encontrada no arquivo CSV. Por favor, verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média (TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C) e TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)).")
+    st.error(f"Erro de Coluna: A coluna '{e}' não foi encontrada no arquivo CSV. Verifique se o seu arquivo contém os dados necessários para a variável selecionada. 🧐")
 except Exception as e:
-    st.error(f"Ocorreu um erro ao gerar os gráficos: {e}")
+    st.error(f"Ocorreu um erro inesperado durante a execução: {e} 🐛")
