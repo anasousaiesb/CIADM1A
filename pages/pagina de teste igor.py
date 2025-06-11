@@ -86,31 +86,20 @@ def main():
     st.header("🔍 Questões-Chave da Pesquisa")
     
     questions = [
-        Análise de Radiação Global em 2020 - 2025
-
-Considerando a série temporal de radiação global de 2020 a 2025, quais são as tendências observadas (aumento, diminuição, estabilidade) e quais anomalias (picos ou vales significativos) podem ser identificadas para o período, e como elas se comparam com anos anteriores?
-Qualidade dos Dados e Correlações Climáticas
-
-Ao avaliar a qualidade dos dados de radiação global para o período, que incertezas ou lacunas foram identificadas e como essas incertezas podem afetar as correlações encontradas entre a radiação global e outras variáveis climáticas (como temperatura, nebulosidade ou umidade)?
-Análise de Extremos
-
-Quais foram os eventos de radiação global extrema (máximos e mínimos históricos ou significativamente desviantes da média) observados entre 2020 e 2025, e houve alguma correlação desses eventos com outros fenômenos climáticos extremos, como ondas de calor ou períodos de seca/chuva intensa?
-Facetado por Região e Variável
-
-Ao segmentar a análise de radiação global por diferentes regiões geográficas e variáveis climáticas (ex: tipo de vegetação, altitude), quais são as diferenças mais marcantes no comportamento da radiação global entre as regiões, e como essas diferenças se relacionam com as características ambientais locais?
-Contrastando o Clima
-
-Considerando as diferenças climáticas regionais, como a radiação global média e sua variabilidade se comportam em regiões com climas distintos (ex: tropical úmido vs. semiárido) e como essas variações podem ser explicadas pela interação com outros elementos climáticos como nebulosidade e umidade?
-Temperatura Sazonal
-
-Como a radiação global sazonal se correlaciona com os padrões de temperatura sazonal em diferentes regiões, e qual o papel da radiação na explicação das variações de temperatura observadas ao longo das estações, considerando o balanço de energia superficial?
-Médias Mensais Regionais
-
-Ao analisar as médias mensais regionais de radiação global, quais são os meses de maior e menor incidência em cada região e como esses padrões mensais se comparam entre si, revelando particularidades climáticas regionais ao longo do ano?
-Comparação de Chuva
-
-Existe uma relação inversa ou direta entre a radiação global e os padrões de precipitação (chuva) em diferentes regiões e em que escala temporal (diária, mensal, sazonal) essa relação é mais evidente, e quais são os mecanismos físicos que explicam essa interação?
-    ]   
+        "1. Qual região do Brasil manteve as temperaturas máximas médias mais elevadas durante a maior parte do ano de 2021? E qual região registrou as temperaturas máximas médias mais baixas, especialmente nos meses de inverno (junho, julho e agosto)?",
+        "2. Observando a linha da Região Sul (S), em que mês de 2021 ela atingiu sua temperatura máxima média mais baixa? Compare essa temperatura com a temperatura máxima média da Região Nordeste (NE) no mesmo mês.",
+        "3. Tendências de Curto Prazo: Há tendências de aumento/diminuição de temperatura ou precipitação (2020-2025) em alguma região? O que as explica?",
+        "4. Diferenças entre Anos: Compare padrões de temperatura e precipitação entre 2020 e 2024 em uma região específica. Isso sugere eventos climáticos ou alta variabilidade?",
+        "5. Radiação por Estação: Como a radiação global varia entre regiões no verão e inverno? Como isso se relaciona com a geografia de cada região?",
+        "6. Impacto em Setores: Quais regiões seriam mais favoráveis para agricultura de sequeiro e para energia solar, baseando-se nos dados de temperatura, precipitação e radiação?",
+        "7. Padrões Sazonais Extremos: Identifique a região com maior amplitude térmica e maior variação de precipitação mensal (2020-2025). Como esses extremos aparecem nos gráficos?",
+        "8. Previsões Futuras (Insights Preliminares): Que hipóteses sobre o clima futuro das regiões brasileiras podem ser formuladas com base nesses dados de curto prazo (2020-2025)?",
+        "9. Temperatura Sazonal: Descreva os padrões sazonais de temperatura na Região Sudeste e Nordeste (2020-2025) e identifique meses/anos atípicos.",
+        "10. Comparação de Chuva: Compare os regimes de precipitação (volumes, picos/secas) entre as Regiões Norte e Sul (2020-2025) e justifique as diferenças.",
+        "11. Extremos de Radiação: Identifique regiões e meses com maiores/menores valores de Radiação Global (2020-2025) e sua relevância.",
+        "12. Variabilidade Anual: Escolha uma variável e região e analise qual ano (2020-2025) se destaca por valores atipicamente altos/baixos, discutindo as implicações."
+    ]
+    
     for i, question in enumerate(questions, start=1):
         st.markdown(f"""
         <div class="question-card">
