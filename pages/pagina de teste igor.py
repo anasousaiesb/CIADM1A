@@ -6,42 +6,36 @@ import numpy as np
 from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(layout="wide", page_title="Análise de Extremos Climáticos ⚠️")
+st.set_page_config(layout="wide", page_title="Extremos Climáticos 🚨")
 
 # CSS para estilização aprimorada do título e subtítulo
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
-
-html, body, [class*="st-"] {
-    font-family: 'Montserrat', sans-serif;
-}
-
 .stApp {
     background-color: #f0f2f5; /* Fundo cinza claro */
 }
-.main-title-3 {
+.main-title-4 {
     font-size: 3.2em;
     font-weight: 700;
-    color: #D32F2F; /* Vermelho escuro para destaque de 'extremos' */
+    color: #CC0000; /* Vermelho forte para extremos */
     text-align: center;
     margin-bottom: 0.5em;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
 }
-.subtitle-3 {
+.subtitle-4 {
     font-size: 1.6em;
-    color: #FF5722; /* Laranja vibrante */
+    color: #E65100; /* Laranja escuro */
     text-align: center;
     margin-top: -0.5em;
     margin-bottom: 1.5em;
 }
-.header-section-3 {
-    background: linear-gradient(135deg, #FFE0B2 0%, #FFCC80 100%); /* Gradiente laranja suave */
+.header-section-4 {
+    background: linear-gradient(135deg, #FFD180 0%, #FFAB40 100%); /* Gradiente de laranja */
     padding: 1.8em;
     border-radius: 12px;
     margin-bottom: 2em;
     box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    border: 1px solid #FFAB40;
+    border: 1px solid #FF8F00;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -71,9 +65,9 @@ try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
     # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS E NOVO ESTILO ---
-    st.markdown('<div class="header-section-3">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title-3">Análise de Extremos Climáticos Regionais do Brasil ⚠️🌪️</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle-3">Desvendando Picos e Vales nos Dados Climáticos (2020-2025) 🌡️🌧️</p>', unsafe_allow_html=True)
+    st.markdown('<div class="header-section-4">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title-4">Análise de Extremos Climáticos Regionais do Brasil 🚨⚠️</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle-4">Explorando Picos e Vales nos Dados Climáticos (2020-2025) 🌡️💨🌧️</p>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- INTERFACE DO USUÁRIO ---
@@ -104,7 +98,7 @@ try:
     st.markdown("---")
 
     # --- ANÁLISE DE EXTREMOS CLIMÁTICOS POR REGIÃO ---
-    st.header(f"Valores Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📊")
+    st.header(f"Valores Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📈")
     st.write(f"Esta seção apresenta os valores **máximos** (ou mínimos, para temperatura mínima) registrados para a variável selecionada em cada região, dentro do período de tempo escolhido. Descubra quais regiões experimentaram as condições mais extremas! ")
 
     # Agrupando por região para encontrar os valores extremos
