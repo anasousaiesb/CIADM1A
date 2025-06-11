@@ -87,7 +87,7 @@ def main():
     
     questions = [
         Análise de Radiação Global em 2020 - 2025
-[
+
 Considerando a série temporal de radiação global de 2020 a 2025, quais são as tendências observadas (aumento, diminuição, estabilidade) e quais anomalias (picos ou vales significativos) podem ser identificadas para o período, e como elas se comparam com anos anteriores?
 Qualidade dos Dados e Correlações Climáticas
 
