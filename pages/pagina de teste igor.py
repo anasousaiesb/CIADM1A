@@ -20,143 +20,98 @@ def carregar_dados(caminho):
 
     # --- Renomear colunas para facilitar o uso no código (opcional, mas boa prática) ---
     # Mapeamento dos nomes de coluna do seu CSV para nomes padronizados no código
+    # **REVISADO COM BASE NO ERRO E VARIÁVEIS FORNECIDAS**
     col_mapping = {
-        # Assuming 'Data' column is indeed missing. We will reconstruct a date.
-        # 'Data': 'Data_Original', # This line was causing the error
         'Hora UTC': 'Hora_UTC',
         'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'Precipitacao_Total_Horaria',
-        'PRESSAO ATMOSFERICA AO NIVEL DA ESTACAO, HORARIA (mB)': 'Pressao_Atmosferica_Horaria',
-        'PRESSÃO ATMOSFERICA MAX.NA HORA ANT. (AUT) (mB)': 'Pressao_Maxima_Hora_Ant',
-        'PRESSÃO ATMOSFERICA MIN. NA HORA ANT. (AUT) (mB)': 'Pressao_Minima_Hora_Ant',
+        'PRESSAO ATMOSFERICA AO NIVEL DA ESTACAO, HORARIA (mB)': 'Pressao_Atmosferica_Horaria', # Keep if exists
+        'PRESSÃO ATMOSFERICA MAX.NA HORA ANT. (AUT) (mB)': 'Pressao_Maxima_Hora_Ant',      # Keep if exists
+        'PRESSÃO ATMOSFERICA MIN. NA HORA ANT. (AUT) (mB)': 'Pressao_Minima_Hora_Ant',      # Keep if exists
         'RADIACAO GLOBAL (Kj/m²)': 'Radiacao_Global_Horaria',
-        'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)': 'Temperatura_Bulbo_Seco_Horaria',
-        'TEMPERATURA DO PONTO DE ORVALHO (°C)': 'Temperatura_Ponto_Orvalho_Horaria',
+        
+        # **Atenção aqui:** Se "TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)" NÃO existe,
+        # você precisa usar uma coluna de temperatura que exista.
+        # Baseado no seu prompt inicial, as temperaturas disponíveis são MÁXIMA e MÍNIMA.
+        # Vamos usar a média delas como uma proxy para a temperatura horária.
         'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Maxima_Hora_Ant',
         'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)': 'Temperatura_Minima_Hora_Ant',
+        
+        # **Atenção aqui:** Se "UMIDADE RELATIVA DO AR, HORARIA (%)" NÃO existe no seu CSV,
+        # você PRECISA identificar a coluna de umidade correta ou remover a umidade da análise.
+        # Por enquanto, vou manter o nome esperado, mas se o erro persistir,
+        # o nome real da coluna de umidade no seu CSV é o problema.
         'UMIDADE RELATIVA DO AR, HORARIA (%)': 'Umidade_Relativa_Horaria',
-        'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',
-        'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria',
-        'Regiao': 'Regiao', # Already should be correct
-        'Mês': 'Mês',       # Already should be correct
-        'Ano': 'Ano'         # Already should be correct
+        
+        'VENTO, RAJADA MAXIMA (m/s)': 'Vento_Rajada_Maxima',        # Keep if exists
+        'VENTO, VELOCIDADE HORARIA (m/s)': 'Vento_Velocidade_Horaria', # Keep if exists
+        
+        'Regiao': 'Regiao',
+        'Mês': 'Mês',
+        'Ano': 'Ano'
     }
     
-    # Apply the mapping, ignoring keys that don't exist in the DF
+    # Aplica o mapeamento, ignorando chaves que não existem no DF
     df = df.rename(columns={k: v for k, v in col_mapping.items() if k in df.columns})
 
-    # --- Construct 'Data_Original' from 'Ano' and 'Mês' ---
-    # We need a 'day' component to create a full date.
-    # Assuming 'medias_mensais_geo_2020_2025.csv' has daily aggregated data,
-    # it *should* have a 'Dia' column. If not, we'll have to make an assumption
-    # (e.g., set day to 1 for all entries, which would make it monthly data).
-    # Since your error implies 'Data' was supposed to exist, and you're aggregating daily,
-    # I'll assume for this fix that you have 'Ano', 'Mês', and a 'Dia' column
-    # or that the original 'Data' column was implicitly providing day information.
-
-    # If your original CSV had 'Data' as a column, and it's missing,
-    # you might need to check the actual column names in your CSV.
-    # If the original CSV truly only has 'Ano' and 'Mês' and no 'Dia',
-    # then a daily analysis is not possible without further data.
-
-    # Given your provided variables `RegiãoEstadoMêsRADIAÇÃO GLOBAL (Kj/m²)...Ano`
-    # and the error, I'm going to assume your source CSV for this file
-    # `medias_mensais_geo_2020_2025.csv` *does* have a column that represents the day.
-    # If it doesn't, then you can't really do a "daily" atypicality detection.
-
-    # Let's try to construct a date. The error indicates `Data_Original` is the problem.
-    # If you intend for the raw data to be hourly, then the 'Data' column was essential.
-    # If 'Data' does not exist in your CSV, and you only have 'Ano' and 'Mês',
-    # the concept of `df_diario` is problematic.
-
-    # **CRITICAL ASSUMPTION FOR THE FIX:**
-    # The original CSV file must have a column that uniquely identifies each day.
-    # If your input CSV is truly "medias_mensais_geo_2020_2025.csv" as its name suggests,
-    # it might *already* be aggregated monthly, making a "daily" analysis impossible.
-    # However, your function explicitly calculates `df_diario`.
-    # This suggests that the input CSV, despite its name, contains finer-grained data.
-
-    # Let's assume a 'Dia' column exists, or we can infer it.
-    # If your CSV has a column like 'Day' or 'Dia', use it. Otherwise,
-    # we'll have to set a default day (which will make all entries for a month
-    # fall on the same day if only month/year are given).
+    # --- Criação da coluna 'Data_Original' ---
+    # Se 'Data' não existe, precisamos criá-la a partir de 'Ano' e 'Mês'.
+    # Para permitir o agrupamento diário, vamos assumir o dia 1 do mês.
+    # **NOTA:** Se seus dados são de fato horários e vêm de um arquivo que
+    # tem uma coluna de data/hora completa, use essa coluna diretamente
+    # e ajuste o mapeamento.
     
-    # A common pattern is to have a 'Data' column already. Let's re-evaluate the original error.
-    # The error was `Erro Crítico: Coluna 'Data' (originalmente 'Data') não encontrada`.
-    # This means the line `df['Data_Original'] = pd.to_datetime(df['Data_Original'], errors='coerce')` failed
-    # because `Data_Original` wasn't created by `df.rename(columns={k: v for k, v in col_mapping.items() if k in df.columns})`.
-    # This implies that the key 'Data' in `col_mapping` (which maps to 'Data_Original') was not found in the original DataFrame.
+    # Ensure 'Ano' and 'Mês' are available to construct a date
+    if 'Ano' not in df.columns or 'Mês' not in df.columns:
+        st.error("Erro Crítico: Colunas 'Ano' ou 'Mês' não encontradas para construir a data. Verifique os nomes das colunas em seu CSV.")
+        st.stop()
+    
+    # Creating a dummy 'Day' column for daily aggregation if not explicitly present, defaulting to 1
+    # This is important for .replace(hour=...) to work correctly later, assuming a full date is needed
+    if 'Dia' not in df.columns: # Assuming 'Dia' is not explicitly mapped or renamed
+        df['Dia'] = 1 # Default to the first day of the month for all entries
 
-    # If your CSV has a column that represents the date, but it's *not* named 'Data',
-    # you need to update `col_mapping`. For example, if it's named 'Date_Column_In_CSV':
-    # col_mapping['Date_Column_In_CSV'] = 'Data_Original'
-
-    # If your CSV truly only has 'Ano' and 'Mês' and no 'Dia', then you cannot perform a daily aggregation as written.
-    # You would need to choose a default day, e.g., the 1st of the month.
-    
-    # Let's assume the CSV file is actually named 'raw_data_2020_2025.csv'
-    # and contains a 'Data' column (as your original code implied it expected).
-    # If the `medias_mensais_geo_2020_2025.csv` is *already* aggregated monthly,
-    # then the entire approach of daily atypicality needs rethinking.
-    
-    # Given the previous error, I am going to *remove* the 'Data' from col_mapping
-    # and *assume* that a 'Dia' column must exist or be created to enable daily processing.
-    # If your CSV has 'Ano', 'Mês', and 'Dia', we can construct the date.
-    
-    # Let's assume your CSV has 'Ano' and 'Mês', and you want to use the first day of the month as the "date"
-    # for monthly aggregated data, or if you actually have some form of 'Dia' in your CSV.
-    # Given the prompt, if the 'Data' column is indeed missing, and you only have 'Ano' and 'Mês',
-    # you cannot perform a 'daily' analysis without a 'Dia' column.
-    
-    # I will modify to construct 'Data_Original' from 'Ano' and 'Mês' assuming a 'Dia' is implied
-    # or that the first day of the month is sufficient for a "daily" view in this context.
-    # **This is a critical assumption.** If your data is truly only monthly, `df_diario` will be misleading.
-
-    # Let's try to create 'Data_Original' based on 'Ano' and 'Mês', assuming each row
-    # represents a unique daily entry for a specific combination of Year, Month, and implicit Day.
-    # If `Hora_UTC` is present, it implies hourly records which would naturally have a date component.
-    
-    # I will try to handle the 'Data_Original' creation robustly.
-    if 'Data_Original' not in df.columns:
-        # Attempt to create a date column if it's not present.
-        # This is a common point of failure if the CSV structure is different.
-        if 'Ano' in df.columns and 'Mês' in df.columns:
-            # We need a 'day' component. If your CSV does not have a 'Dia' column,
-            # this will implicitly treat all entries for a given month as if they occurred on day 1.
-            # This is a compromise if no 'Dia' column exists.
-            df['Data_Original'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['Mês'].astype(str) + '-01', errors='coerce')
-        else:
-            st.error("Erro Crítico: Colunas 'Data', 'Ano' ou 'Mês' não encontradas para construir a data. Esta análise depende de uma coluna de data válida.")
-            st.stop()
-    else: # If 'Data_Original' was created by a rename from 'Data' (which implies 'Data' existed)
-        df['Data_Original'] = pd.to_datetime(df['Data_Original'], errors='coerce')
+    # Construct Data_Original from Ano, Mês, and the (potentially dummy) Dia
+    df['Data_Original'] = pd.to_datetime(df['Ano'].astype(str) + '-' + df['Mês'].astype(str) + '-' + df['Dia'].astype(str), errors='coerce')
 
     # Now, combine 'Data_Original' and 'Hora_UTC' into a single complete timestamp
     if 'Hora_UTC' in df.columns:
-        # Ensure Hora_UTC is integer and within valid range (0-23)
         df['Hora_UTC'] = pd.to_numeric(df['Hora_UTC'], errors='coerce').fillna(0).astype(int)
         df['Data_Hora_Completa'] = df.apply(lambda row: row['Data_Original'].replace(hour=row['Hora_UTC']) if pd.notna(row['Data_Original']) else pd.NaT, axis=1)
     else:
         st.warning("Coluna 'Hora UTC' não encontrada. A análise diária será baseada apenas na data, não na hora exata.")
-        df['Data_Hora_Completa'] = df['Data_Original'] # If no hour, use just the date
+        df['Data_Hora_Completa'] = df['Data_Original']
 
-    # Remove rows with NaN in critical columns after conversion
+    # --- Cálculo da Temperatura Horária Média a partir de Máx/Min ---
+    # Se 'Temperatura_Bulbo_Seco_Horaria' não existe, criamos uma proxy.
+    if 'Temperatura_Maxima_Hora_Ant' in df.columns and 'Temperatura_Minima_Hora_Ant' in df.columns:
+        df['Temperatura_Bulbo_Seco_Horaria'] = (df['Temperatura_Maxima_Hora_Ant'] + df['Temperatura_Minima_Hora_Ant']) / 2
+    else:
+        st.error("Erro: Colunas 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' ou 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' não encontradas para calcular a temperatura horária. Verifique seu CSV.")
+        st.stop()
+
+    # Verificar se a coluna de umidade existe após o mapeamento
+    if 'Umidade_Relativa_Horaria' not in df.columns:
+        st.error("Erro: Coluna 'UMIDADE RELATIVA DO AR, HORARIA (%)' não encontrada. Por favor, verifique o nome exato da coluna de umidade no seu arquivo CSV.")
+        st.stop()
+    
+    # Remover linhas com NaN em colunas críticas após conversão
     df = df.dropna(subset=[
         'Data_Hora_Completa', 'Regiao', 'Mês', 'Ano',
-        'Temperatura_Bulbo_Seco_Horaria',
-        'Umidade_Relativa_Horaria',
+        'Temperatura_Bulbo_Seco_Horaria', # Agora garantimos que ela existe
+        'Umidade_Relativa_Horaria',     # Agora garantimos que ela existe
         'Radiacao_Global_Horaria'
     ])
 
-    # Group by day, region, month, year to get daily values
-    # We will use Data_Original for grouping by calendar day
+    # Agrupar por dia, região, mês, ano para obter valores diários
     df_diario = df.groupby(['Data_Original', 'Regiao', 'Mês', 'Ano']).agg(
         Temp_Media_Diaria=('Temperatura_Bulbo_Seco_Horaria', 'mean'),
         Umidade_Media_Diaria=('Umidade_Relativa_Horaria', 'mean'),
-        Radiacao_Total_Diaria=('Radiacao_Global_Horaria', 'sum') # Radiation is accumulated daily
+        Radiacao_Total_Diaria=('Radiacao_Global_Horaria', 'sum')
     ).reset_index()
 
     return df_diario
 
+# --- O restante do código (calcular_score_atipicidade e o bloco try/except) permanece o mesmo ---
 # --- CÁLCULO DO SCORE DE ATIPICIDADE ---
 def calcular_score_atipicidade(df_diario_regiao):
     """
@@ -388,6 +343,6 @@ except FileNotFoundError:
     st.error(f"Erro: O arquivo '{caminho_arquivo_unificado}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
 except KeyError as e:
     # Captures the specific KeyError and tries to give a more friendly message
-    st.error(f"Erro de Coluna: Uma das colunas esperadas não foi encontrada ou o nome está incorreto: '{e}'. Por favor, verifique se o seu arquivo CSV contém as colunas necessárias e se os nomes estão exatos (incluindo maiúsculas/minúsculas e espaços). As colunas críticas são: 'Ano', 'Mês', 'Regiao', 'Hora UTC' (opcional), 'RADIACAO GLOBAL (Kj/m²)', 'UMIDADE RELATIVA DO AR, HORARIA (%)', 'TEMPERATURA DO AR - BULBO SECO, HORARIA (°C)'.")
+    st.error(f"Erro de Coluna: Uma das colunas esperadas não foi encontrada ou o nome está incorreto: '{e}'. Por favor, verifique se o seu arquivo CSV contém as colunas necessárias e se os nomes estão exatos (incluindo maiúsculas/minúsculas e espaços). As colunas críticas são: 'Ano', 'Mês', 'Regiao', 'Hora UTC' (opcional), 'RADIACAO GLOBAL (Kj/m²)', 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)', 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)', 'UMIDADE RELATIVA DO AR, HORARIA (%)' (ou o nome real da sua coluna de umidade).")
 except Exception as e:
     st.error(f"Ocorreu um erro inesperado durante a execução: {e}")
