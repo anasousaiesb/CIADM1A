@@ -93,7 +93,7 @@ def main():
         "5. Radiação por Estação: Como a radiação global varia entre regiões no verão e inverno? Como isso se relaciona com a geografia de cada região?",
         "6. Impacto em Setores: Quais regiões seriam mais favoráveis para agricultura de sequeiro e para energia solar, baseando-se nos dados de temperatura, precipitação e radiação?",
         "7. Padrões Sazonais Extremos: Identifique a região com maior amplitude térmica e maior variação de precipitação mensal (2020-2025). Como esses extremos aparecem nos gráficos?",
-          
+    ]   
     for i, question in enumerate(questions, start=1):
         st.markdown(f"""
         <div class="question-card">
