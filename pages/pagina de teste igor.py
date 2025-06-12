@@ -4,6 +4,7 @@ import streamlit as st
 import os
 import numpy as np
 from matplotlib.cm import get_cmap
+import textwrap # Import for textwrap.dedent
 
 # --- CONFIGURAÇÕES DA PÁGINA E ESTILO GLOBAL ---
 st.set_page_config(
@@ -56,7 +57,7 @@ def carregar_dados(caminho):
 
 # --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
 st.title("☀️ Clima Brasil: Uma Viagem Visual por Sazonalidade e Tendências! 🌦️")
-st.markdown("""
+st.markdown(textwrap.dedent("""
 <style>
     /* Estilos para a fonte grande e média na introdução */
     .big-font {
@@ -138,7 +139,7 @@ st.markdown("""
 </style>
 <p class="big-font">✨ Prepare-se para uma imersão nos padrões climáticos do Brasil! ✨</p>
 <p class="medium-font">Navegue pelas **variações sazonais** e desvende as **tendências anuais** das variáveis climáticas mais importantes em cada região. Uma ferramenta interativa para insights e formulação de hipóteses sobre o nosso clima tropical.</p>
-""", unsafe_allow_html=True)
+"""), unsafe_allow_html=True)
 
 st.markdown("---") # Linha divisória para separar visualmente as seções
 
@@ -148,12 +149,13 @@ try:
     
     # Verifica se a coluna de temperatura média pôde ser criada ou se já existia
     if 'Temp_Media' not in df_unificado.columns:
-        st.error("""
+        error_message_temp_media = textwrap.dedent("""
         <div class="error-box">
             ❌ <b>Erro Crítico:</b> A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima.<br>
             Por favor, verifique se seu arquivo CSV contém as colunas <code>'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'</code> e <code>'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)'</code> ou uma coluna <code>'Temp_Media'</code> já calculada.
         </div>
-        """, unsafe_allow_html=True)
+        """)
+        st.error(error_message_temp_media, unsafe_allow_html=True)
         st.stop()
 
     # --- INTERFACE DO USUÁRIO (BARRA LATERAL) ---
@@ -183,12 +185,13 @@ try:
     variaveis_disponiveis = {k: v for k, v in variaveis.items() if v in df_unificado.columns}
     
     if not variaveis_disponiveis:
-        st.error("""
+        error_message_vars_missing = textwrap.dedent("""
         <div class="error-box">
             ❌ <b>Erro:</b> Nenhuma das variáveis climáticas esperadas (Temperatura Média, Precipitação Total, Radiação Global) foi encontrada no seu arquivo CSV.
             Verifique os nomes das colunas!
         </div>
-        """, unsafe_allow_html=True)
+        """)
+        st.error(error_message_vars_missing, unsafe_allow_html=True)
         st.stop()
 
     nome_var = st.sidebar.selectbox(
@@ -247,11 +250,12 @@ try:
 
     # --- NOVA SEÇÃO: FORMULAÇÃO DE HIPÓTESES ---
     st.header("🧠 Que hipóteses sobre o clima futuro podemos formular? 🤔")
-    st.warning("""
+    warning_message_short_term = textwrap.dedent("""
     <div class="warning-box">
         🚨 <b>Importante:</b> Esta análise baseia-se em dados de <b>curto prazo (2020-2025)</b>. As 'tendências' e 'hipóteses' são exercícios exploratórios e <b>NÃO são previsões climáticas definitivas</b>. Previsões rigorosas exigem séries históricas de dados de décadas e modelos climáticos complexos e validados.
     </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.warning(warning_message_short_term, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
@@ -292,17 +296,19 @@ try:
                 elif nome_var == 'Radiação Global (Kj/m²)':
                     emoji_tendencia = "☀️" if slope > 0 else "☁️" # Para radiação/nublado
 
-                st.markdown(f"""
+                info_message_trend = textwrap.dedent(f"""
                 <div class="info-box">
                     {emoji_tendencia} <b>Tendência de {tendencia_direcao.capitalize()}:</b> Observamos uma tendência de <b>{tendencia_direcao}</b> na {nome_var.lower()} para a região {regiao_selecionada}. A uma taxa de <code>{slope:.3f} {unidade_var}/ano</code>, a hipótese é que a região pode enfrentar <b>condições progressivamente {tendencia_direcao.replace('aumento', 'mais intensas').replace('diminuição', 'mais amenas')}</b> se essa tendência de curto prazo continuar.
                 </div>
-                """, unsafe_allow_html=True)
+                """)
+                st.markdown(info_message_trend, unsafe_allow_html=True)
             else:
-                st.markdown(f"""
+                success_message_stability = textwrap.dedent(f"""
                 <div class="success-box">
                     ⚖️ <b>Tendência de Estabilidade:</b> A linha de tendência é quase plana (<code>{slope:.3f} {unidade_var}/ano</code>), sugerindo <b>relativa estabilidade</b> na média anual de {nome_var.lower()} na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas com atenção à variabilidade entre os anos.
                 </div>
-                """, unsafe_allow_html=True)
+                """)
+                st.markdown(success_message_stability, unsafe_allow_html=True)
         else:
             st.info("Dados insuficientes (menos de 2 anos com valores válidos) para calcular uma tendência anual para esta variável e região. 📊")
 
@@ -320,15 +326,17 @@ try:
                 ano_mais_atipico = desvios_abs_anuais.idxmax()
                 maior_desvio = desvios_abs_anuais.max()
                 
-                st.markdown(f"""
+                error_message_atypical_year = textwrap.dedent(f"""
                 <div class="error-box">
                     🔥 Na Região <b>{regiao_selecionada}</b>, para a variável <b>{nome_var}</b>, o ano de <b>{int(ano_mais_atipico)}</b> se destaca como o <b>mais atípico</b> (ou extremo), com as médias mensais se afastando em média <b>{maior_desvio:.2f} {unidade_var}</b> da média histórica do período. Isso pode sugerir maior instabilidade climática neste ano.
                 </div>
-                """, unsafe_allow_html=True)
+                """)
+                st.markdown(error_message_atypical_year, unsafe_allow_html=True)
                 
-                st.markdown("""
+                hypothesis_variability_text = textwrap.dedent("""
                 <b>Hipótese de Variabilidade:</b> Se os anos mais recentes (ex: 2024, 2025) aparecem consistentemente com os maiores desvios, isso pode sugerir que <b>o clima na região está se tornando mais variável e propenso a extremos</b>. Anos que se desviam significativamente da média (para cima ou para baixo) podem se tornar mais frequentes, impactando planejamento e recursos. 🌍
-                """, unsafe_allow_html=True)
+                """)
+                st.markdown(hypothesis_variability_text, unsafe_allow_html=True)
 
                 st.write("📊 **Ranking de Anos por Desvio (Atipicidade):**")
                 desvios_df = pd.DataFrame(desvios_abs_anuais.sort_values(ascending=False), columns=['Desvio Médio Absoluto'])
@@ -343,25 +351,28 @@ try:
 
 # --- TRATAMENTO GERAL DE ERROS ---
 except FileNotFoundError:
-    st.error(f"""
+    file_not_found_error_message = textwrap.dedent(f"""
     <div class="error-box">
         ❌ <b>Erro Crítico:</b> O arquivo de dados <code>'{caminho_arquivo_unificado}'</code> não foi encontrado.<br>
         Por favor, verifique o caminho e a existência do arquivo na pasta <code>medias</code>.
         <br>💡 <b>Dica:</b> Certifique-se de que o arquivo <code>medias_mensais_geo_2020_2025.csv</code> está localizado corretamente na pasta <code>medias</code> dentro do seu projeto.
     </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.error(file_not_found_error_message, unsafe_allow_html=True)
 except KeyError as e:
-    st.error(f"""
+    key_error_message = textwrap.dedent(f"""
     <div class="error-box">
-        ❌ <b>Erro de Dados:</b> A coluna esperada <code>'{e}'</code> não foi encontrada no arquivo CSV.<br>
+        ❌ <b>Erro de Coluna:</b> A coluna esperada <code>'{e}'</code> não foi encontrada no arquivo CSV.<br>
         Verifique se o nome da coluna está correto e se o arquivo está no formato esperado.
         <br>💡 <b>Dica:</b> O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês', e 'Temp_Media' (ou 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para cálculo), além de 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' e 'RADIACAO GLOBAL (Kj/m²)'.
     </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.error(key_error_message, unsafe_allow_html=True)
 except Exception as e:
-    st.error(f"""
+    generic_error_message = textwrap.dedent(f"""
     <div class="error-box">
         💥 <b>Ops! Ocorreu um erro inesperado:</b> {e}<br>
         🔄 <b>Sugestão:</b> Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.
     </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.error(generic_error_message, unsafe_allow_html=True)
