@@ -3,253 +3,243 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
-from matplotlib.cm import get_cmap
+from matplotlib.cm import get_cmap # Not directly used in the final version but good to keep if styling changes
 
-# --- CONFIGURAÇÕES INICIAIS DA PÁGINA ---
-st.set_page_config(layout="wide", page_title="Extremos Climáticos 🚨")
+# --- Configurações Iniciais e Estilo da Página ---
+st.set_page_config(
+    layout="wide",
+    page_title="Análise Climática Brasil: 2020 vs. 2024",
+    page_icon="🌍"
+)
 
-# --- CSS para estilização aprimorada do título e subtítulo (mantido e aprimorado) ---
+# Título Principal da Aplicação
+st.title("🌍 Contrastando o Clima: Padrões de Temperatura e Precipitação entre 2020 e 2024 no Brasil")
+
 st.markdown("""
-<style>
-.stApp {
-    background-color: #f0f2f5; /* Fundo cinza claro */
-    color: #2C3E50; /* Cor de texto principal */
-}
-/* Estilos para o tema de "Análise de Extremos Climáticos" */
-.main-title-extreme { /* Título principal dos extremos */
-    font-size: 3.2em;
-    font-weight: 700;
-    color: #CC0000; /* Vermelho forte para extremos */
-    text-align: center;
-    margin-bottom: 0.5em;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-}
-.subtitle-extreme { /* Subtítulo dos extremos */
-    font-size: 1.6em;
-    color: #E65100; /* Laranja escuro */
-    text-align: center;
-    margin-top: -0.5em;
-    margin-bottom: 1.5em;
-}
-.header-section-extreme { /* Seção do cabeçalho dos extremos */
-    background: linear-gradient(135deg, #FFD180 0%, #FFAB40 100%); /* Gradiente de laranja */
-    padding: 1.8em;
-    border-radius: 12px;
-    margin-bottom: 2em;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
-    border: 1px solid #FF8F00;
-}
-/* Estilo para st.metric */
-[data-testid="stMetricValue"] {
-    font-size: 2.5em;
-    font-weight: bold;
-    color: #CC0000; /* Vermelho vibrante para o valor */
-}
-[data-testid="stMetricLabel"] {
-    font-size: 1.2em;
-    color: #E65100; /* Laranja para o rótulo */
-}
-/* Estilo geral para cabeçalhos de seção */
-h2 {
-    color: #34495E; /* Cor para subtítulos h2 */
-    font-weight: 600;
-}
-</style>
-""", unsafe_allow_html=True)
+Uma imersão visual nos dados climáticos brasileiros, revelando as dinâmicas de temperatura e precipitação
+entre os anos de 2020 e 2024. Explore como as condições climáticas variaram em diferentes regiões do país.
+""")
 
 # Caminho relativo ao arquivo CSV
+# Certifique-se de que o arquivo 'medias_mensais_geo_2020_2025.csv'
+# esteja localizado dentro de uma pasta 'medias' no mesmo diretório da sua aplicação Streamlit.
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS (com caching) ---
+# --- Função para Carregar e Preparar os Dados ---
 @st.cache_data
-def carregar_dados(caminho):
-    """Carrega e processa o arquivo de dados climáticos."""
-    df = pd.read_csv(caminho)
+def carregar_dados(caminho: str) -> pd.DataFrame:
+    """
+    Carrega e processa o arquivo de dados climáticos CSV.
+    Realiza o cálculo da temperatura média se as colunas de máxima e mínima estiverem presentes,
+    e garante que as colunas essenciais estejam no DataFrame.
 
-    # Converte colunas para numérico, tratando erros
-    for col in ['Mês', 'Ano', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-                'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-                'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-                'VENTO, RAJADA MAXIMA (m/s)',
-                'RADIACAO GLOBAL (Kj/m²)']: # Adicionado radiação caso precise
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-    
-    df = df.dropna(subset=['Mês', 'Ano']) # Garante que Mês e Ano não são nulos
-    return df
+    Args:
+        caminho (str): O caminho para o arquivo CSV de dados climáticos.
 
-# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
-try:
-    df_unificado = carregar_dados(caminho_arquivo_unificado)
+    Returns:
+        pd.DataFrame: O DataFrame processado com os dados climáticos.
 
-    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS E ESTILO CUSTOMIZADO ---
-    st.markdown('<div class="header-section-extreme">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title-extreme">Análise de Extremos Climáticos Regionais do Brasil 🚨⚠️</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle-extreme">Descubra os Picos e Vales nos Dados Climáticos (2020-2025) 🌡️💨🌧️</p>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("""
-    Prepare-se para uma jornada pelos **recordes climáticos** do Brasil! Esta ferramenta interativa
-    permite que você identifique e visualize os **valores mais altos e mais baixos**
-    de diversas variáveis climáticas, como temperatura, precipitação e rajadas de vento.
-    Descubra quais regiões enfrentaram as condições mais **extremas** no período de 2020 a 2025.
-    """)
-
-    # --- INTERFACE DO USUÁRIO NA BARRA LATERAL ---
-    st.sidebar.header("Filtros de Análise ⚙️")
-    
-    regioes = sorted(df_unificado['Regiao'].unique())
-    anos = sorted(df_unificado['Ano'].unique())
-
-    # Dropdown para selecionar a variável de extremo
-    variaveis_extremo = {
-        'Temperatura Máxima (°C)': 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)',
-        'Temperatura Mínima (°C)': 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)',
-        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-        'Rajada Máxima de Vento (m/s)': 'VENTO, RAJADA MAXIMA (m/s)'
-        # 'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)' # Se quiser incluir radiação
-    }
-    nome_var_extremo = st.sidebar.selectbox("Escolha a Variável de Extremo para Explorar:", list(variaveis_extremo.keys()))
-    coluna_var_extremo = variaveis_extremo[nome_var_extremo]
-    
-    # Verifica se a coluna selecionada realmente existe no DataFrame
-    if coluna_var_extremo not in df_unificado.columns:
-        st.error(f"❌ **Erro:** A coluna '{coluna_var_extremo}' para a variável '{nome_var_extremo}' não foi encontrada no seu arquivo CSV. Por favor, verifique os nomes das colunas. 🛑")
+    Raises:
+        st.error: Interrompe a execução do Streamlit se colunas críticas estiverem faltando.
+    """
+    try:
+        df = pd.read_csv(caminho)
+    except FileNotFoundError:
+        st.error(f"Erro Crítico: O arquivo '{caminho}' não foi encontrado. Verifique o caminho e a localização do arquivo.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo CSV: {e}")
         st.stop()
 
-    unidade_var_extremo = nome_var_extremo.split('(')[-1].replace(')', '') if '(' in nome_var_extremo else ''
+    # Calcula a Temp_Media se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
+                            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
+    elif 'Temp_Media' not in df.columns:
+        # Se Temp_Media não existe e não pôde ser calculada, levanta um erro crítico.
+        st.error("Erro Crítico: A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique o seu arquivo CSV.")
+        st.stop()
 
-    # Slider para selecionar os anos
-    ano_inicio, ano_fim = st.sidebar.select_slider(
-        "Defina o Intervalo de Anos:",
-        options=anos.astype(int),
-        value=(int(min(anos)), int(max(anos)))
-    )
-    df_filtrado_ano = df_unificado[(df_unificado['Ano'] >= ano_inicio) & (df_unificado['Ano'] <= ano_fim)]
+    # Converte colunas essenciais para numérico, tratando erros com 'coerce'
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
 
-    st.markdown("---")
+    # Garante que as colunas necessárias para a análise existem
+    required_cols = ['Temp_Media', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)', 'Regiao', 'Mês', 'Ano']
+    for col in required_cols:
+        if col not in df.columns:
+            st.error(f"Erro Crítico: A coluna '{col}' não foi encontrada no arquivo CSV. Verifique seu arquivo.")
+            st.stop()
 
-    # --- DESTAQUE DO EXTREMO GERAL (st.metric) ---
-    st.subheader(f"🏆 O Recorde Geral de {nome_var_extremo} no Período Selecionado:")
-    
-    if "Mínima" in nome_var_extremo:
-        overall_extreme_value = df_filtrado_ano[coluna_var_extremo].min()
-        overall_extreme_row = df_filtrado_ano.loc[df_filtrado_ano[coluna_var_extremo].idxmin()]
-        metric_label = f"Mínimo Histórico de {nome_var_extremo}"
-    else:
-        overall_extreme_value = df_filtrado_ano[coluna_var_extremo].max()
-        overall_extreme_row = df_filtrado_ano.loc[df_filtrado_ano[coluna_var_extremo].idxmax()]
-        metric_label = f"Máximo Histórico de {nome_var_extremo}"
+    # Remove linhas com valores nulos nas colunas críticas após a conversão
+    df = df.dropna(subset=required_cols)
+    return df
 
-    if not pd.isna(overall_extreme_value):
-        st.metric(label=metric_label, value=f"{overall_extreme_value:.2f} {unidade_var_extremo}")
-        st.info(f"Ocorreu em **{overall_extreme_row['Regiao']}** no mês {int(overall_extreme_row['Mês'])} de {int(overall_extreme_row['Ano'])}.")
-    else:
-        st.info("Não foi possível determinar o valor extremo geral para a seleção atual. 🙁")
+# --- Carregamento dos Dados e Tratamento de Erros Iniciais ---
+df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    st.markdown("---")
+# --- Interface do Usuário na Barra Lateral ---
+st.sidebar.header("⚙️ Opções de Análise")
 
-    # --- ANÁLISE DE EXTREMOS CLIMÁTICOS POR REGIÃO ---
-    st.header(f"Explorando os Extremos de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim}) 📊")
-    st.write(f"""
-    A tabela e o gráfico abaixo revelam os **valores mais extremos** (máximos ou mínimos) registrados para
-    **{nome_var_extremo.lower()}** em cada região do Brasil, dentro do período de **{ano_inicio} a {ano_fim}**.
-    Observe as variações e identifique as regiões que se destacam por suas condições climáticas mais severas.
-    """)
+# Obter lista única de regiões para o selectbox, ordenadas alfabeticamente
+regioes = sorted(df_unificado['Regiao'].unique())
 
-    # Agrupando por região para encontrar os valores extremos
-    if "Mínima" in nome_var_extremo:
-        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].min().reset_index()
-        df_extremos_regionais = df_extremos_regionais.sort_values(by=coluna_var_extremo, ascending=True)
-    else:
-        df_extremos_regionais = df_filtrado_ano.groupby('Regiao')[coluna_var_extremo].max().reset_index()
-        df_extremos_regionais = df_extremos_regionais.sort_values(by=coluna_var_extremo, ascending=False)
+# Seleção de Região
+regiao_selecionada = st.sidebar.selectbox(
+    "Selecione a Região para Comparação:",
+    regioes,
+    help="Escolha uma região para visualizar o comparativo climático entre 2020 e 2024."
+)
 
-    if not df_extremos_regionais.empty:
-        # Renomeando a coluna para melhor exibição
-        df_extremos_regionais.rename(columns={coluna_var_extremo: f'{nome_var_extremo} Extremo'}, inplace=True)
-        
-        # Estilização da tabela com destaque para valores extremos
-        st.dataframe(df_extremos_regionais.set_index('Regiao').style.format("{:.2f}").background_gradient(cmap='YlOrRd' if "Mínima" not in nome_var_extremo else 'Blues_r'))
+st.sidebar.markdown("---")
+st.sidebar.info("✨ Dados fornecidos para a comparação de padrões climáticos anuais no Brasil.")
 
-        # Gráfico de barras para os extremos
-        fig_extremo, ax_extremo = plt.subplots(figsize=(12, 7)) # Aumentado um pouco a altura
-        
-        # Cores dinâmicas e mais vibrantes baseadas na variável
-        if "Temperatura Máxima" in nome_var_extremo:
-            bar_color = '#E74C3C' # Vermelho intenso para calor extremo
-        elif "Temperatura Mínima" in nome_var_extremo:
-            bar_color = '#3498DB' # Azul profundo para frio extremo
-        elif "Precipitação Total" in nome_var_extremo:
-            bar_color = '#2ECC71' # Verde vibrante para chuva
-        elif "Rajada Máxima de Vento" in nome_var_extremo:
-            bar_color = '#9B59B6' # Roxo para vento
-        else:
-            bar_color = '#FF7043' # Cor padrão laranja/vermelho
+# --- Seção Principal da Aplicação ---
+st.subheader(f"📊 Comparativo Climático Detalhado: 2020 vs. 2024 na Região {regiao_selecionada}")
+st.markdown("""
+Esta seção apresenta uma análise lado a lado dos padrões de **Temperatura Média** e **Precipitação Total**
+para a região selecionada, contrastando os dados de **2020** com os de **2024**. As diferenças observadas
+podem indicar tendências climáticas, a influência de eventos anuais específicos ou a variabilidade natural do clima local.
+""")
 
-        ax_extremo.bar(df_extremos_regionais['Regiao'], df_extremos_regionais[f'{nome_var_extremo} Extremo'], color=bar_color, alpha=0.9, edgecolor='black', linewidth=0.7)
-        ax_extremo.set_title(f'Recordes de {nome_var_extremo} por Região ({ano_inicio}-{ano_fim})', fontsize=20, fontweight='bold', color='#34495E')
-        ax_extremo.set_xlabel('Região', fontsize=15, color='#34495E')
-        ax_extremo.set_ylabel(f'{nome_var_extremo} ({unidade_var_extremo})', fontsize=15, color='#34495E')
-        ax_extremo.tick_params(axis='x', rotation=45, labelsize=12)
-        ax_extremo.tick_params(axis='y', labelsize=12)
-        ax_extremo.grid(axis='y', linestyle='--', alpha=0.7, color='#BDC3C7')
-        ax_extremo.set_facecolor('#F8F9FA') # Fundo do gráfico
+# Filtrar dados para a região selecionada e os anos 2020 e 2024
+df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
+
+# Agrupar e reindexar dados por mês para 2020 e 2024
+# Garante que todos os 12 meses estão presentes, mesmo que com NaN se não houver dados.
+df_2020 = df_regiao[df_regiao['Ano'] == 2020].groupby('Mês').agg({
+    'Temp_Media': 'mean',
+    'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
+}).reindex(range(1, 13))
+
+df_2024 = df_regiao[df_regiao['Ano'] == 2024].groupby('Mês').agg({
+    'Temp_Media': 'mean',
+    'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
+}).reindex(range(1, 13))
+
+# Remover meses onde não há dados para ambos os anos na comparação de gráficos
+df_2020_comp = df_2020.dropna()
+df_2024_comp = df_2024.dropna()
+
+if df_2020_comp.empty or df_2024_comp.empty:
+    st.warning(f"Dados incompletos para 2020 ou 2024 na Região {regiao_selecionada}. Não é possível realizar a comparação completa.")
+    # Não st.stop() aqui para permitir que a explicação continue, mas o gráfico não será gerado
+else:
+    # Mapeamento de números de mês para nomes abreviados
+    nomes_meses = {
+        1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
+        7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
+    }
+
+    # Layout de colunas para os gráficos
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # --- GRÁFICO DE TEMPERATURA MÉDIA ---
+        fig_temp, ax_temp = plt.subplots(figsize=(10, 6))
+
+        ax_temp.plot(df_2020_comp.index, df_2020_comp['Temp_Media'], marker='o', linestyle='-',
+                     color='purple', label='Temperatura Média 2020', linewidth=2, markersize=7)
+        ax_temp.plot(df_2024_comp.index, df_2024_comp['Temp_Media'], marker='o', linestyle='--',
+                     color='orange', label='Temperatura Média 2024', linewidth=2, markersize=7)
+
+        ax_temp.set_title(f'Variação da Temperatura Média Mensal\nRegião: {regiao_selecionada}', fontsize=16, fontweight='bold')
+        ax_temp.set_xlabel('Mês', fontsize=12)
+        ax_temp.set_ylabel('Temperatura Média (°C)', fontsize=12)
+        ax_temp.set_xticks(range(1, 13))
+        ax_temp.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
+        ax_temp.grid(True, linestyle=':', alpha=0.7)
+        ax_temp.legend(fontsize=10, loc='best')
         plt.tight_layout()
-        st.pyplot(fig_extremo)
+        st.pyplot(fig_temp)
 
-        st.markdown("---")
+    with col2:
+        # --- GRÁFICO DE PRECIPITAÇÃO TOTAL ---
+        fig_prec, ax_prec = plt.subplots(figsize=(10, 6))
 
-        st.header("Insights e Hipóteses sobre Extremos Climáticos 🤔")
-        st.warning("🚨 **Atenção:** As análises e hipóteses abaixo são exploratórias e baseadas em um período de dados limitado (2020-2025). Para conclusões definitivas sobre mudanças climáticas e eventos extremos, são necessárias séries históricas de dados muito mais longas e estudos aprofundados.")
+        # Ajusta a posição das barras para ficarem lado a lado
+        bar_width = 0.4
+        ax_prec.bar(df_2020_comp.index - bar_width/2, df_2020_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
+                    width=bar_width, color='darkgreen', label='Precipitação 2020', alpha=0.8)
+        ax_prec.bar(df_2024_comp.index + bar_width/2, df_2024_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
+                    width=bar_width, color='skyblue', label='Precipitação 2024', alpha=0.8)
 
-        # --- Insights Dinâmicos dentro de Expanders ---
-        if not df_extremos_regionais.empty:
-            if "Temperatura Máxima" in nome_var_extremo:
-                top_region = df_extremos_regionais.iloc[0]
-                with st.expander(f"✨ **Desvende o Recorde de Calor: {top_region['Regiao']}**"):
-                    st.markdown(f"""
-                    A Região de **{top_region['Regiao']}** foi a que registrou a **temperatura máxima mais alta** ({top_region[f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) no período selecionado.
-                    * **Potencial Impacto:** Esse cenário pode indicar que essa região está mais suscetível a **ondas de calor prolongadas e intensas**. Isso sobrecarrega os sistemas de saúde, aumenta a demanda por energia para refrigeração e impacta diretamente a produtividade na agricultura e no ambiente urbano.
-                    * **O que significa?** Cidades e áreas rurais podem precisar de estratégias urgentes de adaptação ao calor, como a expansão de áreas verdes, melhorias na infraestrutura e sistemas de alerta de saúde pública.
-                    """)
-            
-            elif "Temperatura Mínima" in nome_var_extremo:
-                top_region = df_extremos_regionais.iloc[0] # Para mínima, a primeira é a menor
-                with st.expander(f"🥶 **Onde o Frio Atingiu seu Ponto Mais Baixo: {top_region['Regiao']}**"):
-                    st.markdown(f"""
-                    A Região de **{top_region['Regiao']}** alcançou a **temperatura mínima mais baixa** ({top_region[f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) no período.
-                    * **Potencial Impacto:** Períodos de frio extremo podem causar **perdas significativas na agricultura devido a geadas**, aumentar o consumo de energia para aquecimento e representar riscos graves à saúde de populações mais vulneráveis.
-                    * **O que significa?** É fundamental que as regiões com esses recordes preparem suas lavouras e infraestruturas para proteger-se contra eventos de frio intenso e garantir o bem-estar de seus habitantes.
-                    """)
-            
-            elif "Precipitação Total" in nome_var_extremo:
-                top_region = df_extremos_regionais.iloc[0]
-                with st.expander(f"🌊 **Recorde de Chuva: A Força da Água em {top_region['Regiao']}**"):
-                    st.markdown(f"""
-                    A Região de **{top_region['Regiao']}** registrou o **maior volume de precipitação** ({top_region[f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) em um único mês no período analisado.
-                    * **Potencial Impacto:** Volumes tão extremos de chuva elevam drasticamente o risco de **inundações repentinas, deslizamentos de terra e transbordamento de rios**, impactando severamente infraestruturas e a segurança da vida humana.
-                    * **O que significa?** Planejamento urbano resiliente, sistemas de drenagem eficientes e alertas precoces à população são cruciais para mitigar os riscos em áreas suscetíveis a chuvas torrenciais.
-                    """)
-            
-            elif "Rajada Máxima de Vento" in nome_var_extremo:
-                top_region = df_extremos_regionais.iloc[0]
-                with st.expander(f"💨 **Onde o Vento Soprou Mais Forte: {top_region['Regiao']}**"):
-                    st.markdown(f"""
-                    A Região de **{top_region['Regiao']}** experimentou a **rajada máxima de vento mais forte** ({top_region[f'{nome_var_extremo} Extremo']:.2f} {unidade_var_extremo}) no período.
-                    * **Potencial Impacto:** Ventos de alta velocidade podem causar **danos severos a edificações, quedas de árvores, interrupções em redes elétricas e de comunicação**, e colocar a segurança pública em risco.
-                    * **O que significa?** Regiões com esses registros necessitam de infraestrutura mais robusta e planos de contingência bem definidos para proteger bens e pessoas durante eventos de vento extremo.
-                    """)
-
-    else:
-        st.info("Não há dados de extremos disponíveis para a variável e o período selecionados. 😔 Tente ajustar os filtros para revelar mais informações!")
-
-except FileNotFoundError:
-    st.error(f"❌ **Erro Crítico:** O arquivo de dados '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a localização do arquivo para continuar a análise. 📁")
-except KeyError as e:
-    st.error(f"⚠️ **Erro de Coluna:** A coluna essencial '{e}' não foi encontrada no seu arquivo CSV. Verifique se os nomes das colunas correspondem exatamente aos esperados. 🧐")
-except Exception as e:
-    st.error(f"💥 **Ocorreu um erro inesperado!** Lamentamos, mas algo deu errado durante o processamento dos dados. Por favor, tente novamente ou entre em contato se o problema persistir. Detalhes técnicos: `{e}` 🐛")
+        ax_prec.set_title(f'Volume Total de Precipitação Mensal\nRegião: {regiao_selecionada}', fontsize=16, fontweight='bold')
+        ax_prec.set_xlabel('Mês', fontsize=12)
+        ax_prec.set_ylabel('Precipitação Total (mm)', fontsize=12)
+        ax_prec.set_xticks(range(1, 13))
+        ax_prec.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
+        ax_prec.grid(axis='y', linestyle=':', alpha=0.7)
+        ax_prec.legend(fontsize=10, loc='best')
+        plt.tight_layout()
+        st.pyplot(fig_prec)
 
 st.markdown("---")
-st.markdown("✨ Esperamos que esta análise dos extremos climáticos tenha sido esclarecedora! Qual outro mistério climático você gostaria de desvendar em seguida? Sua curiosidade é o nosso combustível! ✨")
+
+# --- ANÁLISE PROFUNDA E JUSTIFICATIVA ---
+st.header(f"🔍 2020 vs. 2024 na Região {regiao_selecionada}: Eventos Climáticos ou Variabilidade Natural?")
+st.markdown(f"""
+Ao confrontar os padrões climáticos de **2020** e **2024** para a **Região {regiao_selecionada}**,
+podemos extrair insights cruciais sobre a natureza do clima local. As diferenças visíveis nos gráficos
+acima podem ser mais do que meras flutuações anuais; elas podem sinalizar a influência de eventos climáticos
+específicos ou, alternativamente, a manifestação de uma alta variabilidade intrínseca à região.
+
+---
+
+### 🌡️ Análise da Temperatura Média:
+Observe as linhas que representam a temperatura média mensal.
+
+* **Tendência Anual:** Se a linha de **2024** se mantém consistentemente acima (ou abaixo) da de **2020** por
+    vários meses, especialmente em estações-chave, isso pode indicar uma **tendência de aquecimento ou
+    resfriamento anual** mais acentuada. Isso pode ser um reflexo de tendências climáticas de longo prazo
+    ou a influência de fenômenos de grande escala, como fases intensas do El Niño/La Niña.
+* **Eventos Extremos de Calor/Frio:** Picos ou vales acentuados em meses específicos de um ano, sem uma
+    correspondência similar no outro, podem indicar a ocorrência de **ondas de calor ou frio pontuais**.
+    Estes são eventos climáticos de alto impacto que merecem atenção especial.
+
+---
+
+### ☔ Análise da Precipitação Total:
+A comparação das barras de precipitação é igualmente reveladora para entender os regimes hídricos.
+
+* **Secas ou Chuvas Intensas:** Um ano com volumes de precipitação drasticamente menores ou maiores que
+    o outro (especialmente durante a estação chuvosa característica da região) sugere a ocorrência de
+    **secas prolongadas ou períodos de chuvas torrenciais**. Tais eventos são extremos e podem ter
+    consequências severas para a agricultura, recursos hídricos e cidades.
+* **Mudança na Sazonalidade:** Se os picos de chuva ocorreram em meses diferentes, ou se a distribuição
+    das chuvas mudou significativamente (por exemplo, um ano com chuva mais concentrada em poucos meses,
+    outro mais dispersa ao longo do ano), isso aponta para uma **alteração nos padrões sazonais**.
+    Esta é uma indicação clara de alta variabilidade climática.
+
+---
+
+### 🧐 Conclusão: Eventos Climáticos ou Alta Variabilidade?
+* **Impacto de Eventos Climáticos:** Se você observar diferenças **abruptas e marcantes** em um ou mais meses,
+    ou um padrão de temperaturas ou precipitações consistentemente mais altas/baixas em um ano em
+    comparação ao outro, isso **sugere fortemente a influência de um evento climático específico** naquele período.
+    Estes podem incluir fenômenos como El Niño/La Niña, bloqueios atmosféricos, ou a passagem de sistemas ciclônicos.
+* **Alta Variabilidade Natural:** Por outro lado, se as diferenças são **menos consistentes**, com um ano
+    sendo mais quente em alguns meses e mais frio em outros, ou com variações de precipitação que não
+    formam um padrão claro de seca/enchente generalizada, isso pode indicar uma **alta variabilidade
+    climática intrínseca à região**. Esta variabilidade exige adaptabilidade contínua por parte de
+    diversos setores, como o agrícola e de infraestrutura.
+
+Ao analisar cuidadosamente os gráficos e as informações acima, você pode inferir se a **Região {regiao_selecionada}**
+vivenciou anomalias climáticas pontuais em 2020 ou 2024, ou se a sua variabilidade natural foi particularmente acentuada nesses anos.
+""")
+
+# --- Rodapé ou Informações Adicionais (Opcional) ---
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; font-size: small; color: gray;'>
+    Dados baseados em informações meteorológicas históricas.
+    Desenvolvido para análise comparativa de padrões climáticos.
+</div>
+""", unsafe_allow_html=True)
+
+# Lembre-se: Para rodar este código, você precisa ter o Streamlit instalado
+# (`pip install streamlit pandas matplotlib`) e salvar o código como um arquivo `.py`
+# (ex: `app_clima.py`). Coloque o arquivo `medias_mensais_geo_2020_2025.csv`
+# dentro de uma pasta `medias` no mesmo diretório da aplicação.
+# Em seguida, execute no terminal: `streamlit run app_clima.py`
