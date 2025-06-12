@@ -5,16 +5,16 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- CONFIGURAÇÕES DA PÁGINA ---
+# --- CONFIGURAÇÕES DA PÁGINA E ESTILO GLOBAL ---
 st.set_page_config(
     layout="wide",
     page_title="Clima Brasil: Análise de Sazonalidade e Tendências 🇧🇷",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    page_icon="🌈" # Um ícone divertido para a aba do navegador
 )
 
-# Definindo o caminho do arquivo de dados (ajuste conforme a localização real do seu arquivo)
-# Certifique-se de que 'medias_mensais_geo_2020_2025.csv' está na pasta 'medias'
-caminho_arquivo_unificado = os.path.join('medias', 'medias_mensais_geo_2020_2025.csv')
+# Caminho relativo ao arquivo CSV (ajuste se necessário)
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
 # --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data(show_spinner="Carregando e processando os dados climáticos... ⏳")
@@ -38,14 +38,15 @@ def carregar_dados(caminho):
         df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] + 
                             df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
     elif 'Temp_Media' not in df.columns:
-        raise KeyError("Coluna 'Temp_Media' não encontrada e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique seu CSV.")
+        # Se não há como calcular e a coluna não existe, o erro será tratado no bloco principal
+        pass
 
     # Converte colunas para numérico, tratando erros
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
     df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
     df = df.dropna(subset=['Mês', 'Ano', 'Regiao']) # Remove NAs de colunas essenciais
     
-    # Assegurar que os nomes das variáveis estejam corretos para o selectbox
+    # Renomear colunas para exibição amigável no selectbox
     df.rename(columns={
         'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'Precipitação Total (mm)',
         'RADIACAO GLOBAL (Kj/m²)': 'Radiação Global (Kj/m²)'
@@ -54,24 +55,28 @@ def carregar_dados(caminho):
     return df
 
 # --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
-st.title("🌦️ Jornada Climática Regional do Brasil (2020-2025)")
+st.title("☀️ Clima Brasil: Uma Viagem Visual por Sazonalidade e Tendências! 🌦️")
 st.markdown("""
 <style>
+    /* Estilos para a fonte grande e média na introdução */
     .big-font {
-        font-size:18px !important;
+        font-size: 20px !important;
         font-weight: bold;
-        color: #2e8b57; /* SeaGreen */
+        color: #4CAF50; /* Um verde mais vibrante */
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     }
     .medium-font {
-        font-size:15px !important;
-        color: #4682b4; /* SteelBlue */
+        font-size: 16px !important;
+        color: #007BFF; /* Um azul mais claro e vibrante */
     }
+    /* Estilos para os selectboxes e botões */
     .stSelectbox label {
         font-weight: bold;
-        color: #333333;
+        color: #34495E; /* Azul escuro quase preto */
+        font-size: 1.1em;
     }
     .stButton>button {
-        background-color: #4CAF50; /* Green */
+        background-color: #FF6F61; /* Coral vibrante */
         color: white;
         padding: 10px 20px;
         text-align: center;
@@ -80,39 +85,91 @@ st.markdown("""
         font-size: 16px;
         margin: 4px 2px;
         cursor: pointer;
-        border-radius: 8px;
+        border-radius: 12px; /* Mais arredondado */
         border: none;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
     }
-    .stMarkdown h2 {
-        color: #0F4C75; /* Darker Blue */
-        font-size: 24px;
-        border-bottom: 2px solid #0F4C75;
-        padding-bottom: 5px;
-        margin-top: 30px;
+    .stButton>button:hover {
+        background-color: #FF5A4D; /* Um pouco mais escuro ao passar o mouse */
+    }
+    /* Estilos para os subheaders (subtítulos) */
+    h2 {
+        color: #2E86C1; /* Azul celeste */
+        font-size: 28px;
+        border-bottom: 3px solid #2E86C1; /* Borda mais grossa */
+        padding-bottom: 8px;
+        margin-top: 40px;
+        margin-bottom: 20px;
+        text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.1);
+    }
+    /* Estilos para as caixas de informação */
+    .info-box {
+        background-color: #e3f2fd; /* Azul claro */
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 8px solid #2196f3; /* Azul primário */
+        margin-top: 15px;
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+    }
+    .warning-box {
+        background-color: #fff3e0; /* Laranja claro */
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 8px solid #ff9800; /* Laranja primário */
+        margin-top: 15px;
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+    }
+    .error-box {
+        background-color: #ffebee; /* Vermelho claro */
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 8px solid #f44336; /* Vermelho primário */
+        margin-top: 15px;
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
+    }
+    .success-box {
+        background-color: #e8f5e9; /* Verde claro */
+        padding: 20px;
+        border-radius: 15px;
+        border-left: 8px solid #4CAF50; /* Verde primário */
+        margin-top: 15px;
+        box-shadow: 3px 3px 8px rgba(0,0,0,0.15);
     }
 </style>
-<p class="big-font">Explore e compreenda as **variações sazonais** e **tendências anuais** das principais variáveis climáticas nas regiões do Brasil.</p>
-<p class="medium-font">Esta ferramenta interativa permite visualizar padrões, identificar anomalias e formular hipóteses sobre o clima futuro.</p>
+<p class="big-font">✨ Prepare-se para uma imersão nos padrões climáticos do Brasil! ✨</p>
+<p class="medium-font">Navegue pelas **variações sazonais** e desvende as **tendências anuais** das variáveis climáticas mais importantes em cada região. Uma ferramenta interativa para insights e formulação de hipóteses sobre o nosso clima tropical.</p>
 """, unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("---") # Linha divisória para separar visualmente as seções
 
 # --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
     
+    # Verifica se a coluna de temperatura média pôde ser criada ou se já existia
+    if 'Temp_Media' not in df_unificado.columns:
+        st.error("""
+        <div class="error-box">
+            ❌ <b>Erro Crítico:</b> A coluna 'Temp_Media' não existe e não pôde ser calculada a partir das colunas de máxima e mínima.<br>
+            Por favor, verifique se seu arquivo CSV contém as colunas <code>'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'</code> e <code>'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)'</code> ou uma coluna <code>'Temp_Media'</code> já calculada.
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
     # --- INTERFACE DO USUÁRIO (BARRA LATERAL) ---
-    st.sidebar.header("⚙️ Configurações da Análise")
+    st.sidebar.header("⚙️ **Filtros e Configurações**")
     
+    # Garantir que as regiões sejam únicas e ordenadas
     regioes = sorted(df_unificado['Regiao'].dropna().unique())
-    todos_anos_disponiveis = sorted(df_unificado['Ano'].unique())
-    meses_disponiveis = sorted(df_unificado['Mês'].unique())
+    todos_anos_disponiveis = sorted(df_unificado['Ano'].dropna().unique())
+    # meses_disponiveis não usado diretamente no selectbox, mas pode ser útil para debug/expansões
+    # meses_disponiveis = sorted(df_unificado['Mês'].dropna().unique())
 
     # Seleção de Região
     regiao_selecionada = st.sidebar.selectbox(
-        "1. 📍 **Selecione a Região:**",
+        "1. 📍 **Escolha sua Região:**",
         regioes,
-        index=regioes.index("Sul") if "Sul" in regioes else 0 # Define "Sul" como padrão
+        index=regioes.index("Sul") if "Sul" in regioes else 0 # Define "Sul" como padrão se disponível
     )
 
     # Seleção de Variável Climática
@@ -126,7 +183,12 @@ try:
     variaveis_disponiveis = {k: v for k, v in variaveis.items() if v in df_unificado.columns}
     
     if not variaveis_disponiveis:
-        st.error("❌ Erro: Nenhuma das variáveis climáticas esperadas foi encontrada no seu arquivo CSV.")
+        st.error("""
+        <div class="error-box">
+            ❌ <b>Erro:</b> Nenhuma das variáveis climáticas esperadas (Temperatura Média, Precipitação Total, Radiação Global) foi encontrada no seu arquivo CSV.
+            Verifique os nomes das colunas!
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
 
     nome_var = st.sidebar.selectbox(
@@ -138,27 +200,27 @@ try:
     unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
 
     # --- VISUALIZAÇÃO PRINCIPAL (Sazonalidade Anual) ---
-    st.subheader(f"📊 Comparativo Anual de **{nome_var}** na Região **{regiao_selecionada}**")
-    st.markdown("Acompanhe as flutuações mensais para cada ano e compare-as com a média histórica da região.")
+    st.subheader(f"📈 Sazonalidade Anual de **{nome_var}** na Região **{regiao_selecionada}**")
+    st.markdown("Acompanhe as flutuações mensais para cada ano e compare-as com a média histórica regional. Observe os ciclos e as variações ano a ano! 🧐")
 
     # Filtrar dados para a região selecionada
-    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada].copy() # Usar .copy()
+    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada].copy()
 
-    # Cores para os anos (Esquema de cores 'viridis' ou 'plasma' são bons para tendências)
-    cmap = get_cmap('viridis') # 'viridis' é mais suave e acessível
+    # Cores para os anos (Esquema de cores 'inferno' é vibrante e acessível)
+    cmap = get_cmap('inferno') 
     # Garante que as cores sejam distribuídas uniformemente entre os anos disponíveis
     cores_anos = {ano: cmap(i / (len(todos_anos_disponiveis) - 1) if len(todos_anos_disponiveis) > 1 else 1)
                   for i, ano in enumerate(todos_anos_disponiveis)}
 
-    # Criando o gráfico
-    fig, ax = plt.subplots(figsize=(14, 7)) # Ajustei o tamanho para ficar mais agradável
+    # Criando o gráfico de sazonalidade
+    fig, ax = plt.subplots(figsize=(15, 8)) # Tamanho maior para mais impacto
 
     valores_anuais_por_mes = {}
-    for ano in todos_anos_disponiveis: # Itera por TODOS os anos para a média histórica
+    for ano in todos_anos_disponiveis:
         df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
         if not df_ano_regiao.empty and df_ano_regiao.dropna().any():
-            ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', 
-                    color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=1.5, alpha=0.7)
+            ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', markersize=6, linestyle='-', 
+                    color=cores_anos.get(ano, 'lightgray'), label=f'{int(ano)}', linewidth=2, alpha=0.8)
             valores_anuais_por_mes[ano] = df_ano_regiao.values
 
     # Calcula e plota a média histórica
@@ -166,16 +228,17 @@ try:
     media_historica_mensal = df_valores_anuais.mean(axis=1)
 
     ax.plot(media_historica_mensal.index, media_historica_mensal.values, 
-            linestyle='--', color='black', label=f'Média Período ({int(min(todos_anos_disponiveis))}-{int(max(todos_anos_disponiveis))})', linewidth=2.5, alpha=0.8)
+            linestyle='--', color='black', label=f'Média Histórica ({int(min(todos_anos_disponiveis))}-{int(max(todos_anos_disponiveis))})', linewidth=3, alpha=0.9)
 
     # Configurações do gráfico
-    ax.set_title(f'Variação Mensal de {nome_var} por Ano em {regiao_selecionada}', fontsize=18, color='#2F4F4F', fontweight='bold')
-    ax.set_xlabel('Mês', fontsize=14)
-    ax.set_ylabel(f'{nome_var} ({unidade_var})', fontsize=14)
+    ax.set_title(f'Variação Mensal de {nome_var} por Ano em {regiao_selecionada}', fontsize=20, color='#34495E', fontweight='bold')
+    ax.set_xlabel('Mês', fontsize=15, color='#555555')
+    ax.set_ylabel(f'{nome_var} ({unidade_var})', fontsize=15, color='#555555')
     ax.set_xticks(range(1, 13))
     ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], fontsize=12)
-    ax.grid(True, linestyle=':', alpha=0.7)
-    ax.legend(title='Legenda (Ano)', bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0., fontsize=10, title_fontsize='12')
+    ax.tick_params(axis='x', rotation=45) # Rotaciona labels para evitar sobreposição
+    ax.grid(True, linestyle=':', alpha=0.7, color='lightgray')
+    ax.legend(title='Anos do Período', bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0., fontsize=11, title_fontsize='13', frameon=True, fancybox=True, shadow=True)
     
     plt.tight_layout()
     st.pyplot(fig)
@@ -183,14 +246,19 @@ try:
     st.markdown("---")
 
     # --- NOVA SEÇÃO: FORMULAÇÃO DE HIPÓTESES ---
-    st.header("🧠 Que hipóteses sobre o clima futuro podemos formular?")
-    st.warning("🚨 **Importante:** Esta análise baseia-se em dados de curto prazo (2020-2025). As 'tendências' e 'hipóteses' são exercícios exploratórios e **NÃO são previsões climáticas definitivas**. Previsões rigorosas exigem séries históricas de dados de décadas e modelos climáticos complexos.")
+    st.header("🧠 Que hipóteses sobre o clima futuro podemos formular? 🤔")
+    st.warning("""
+    <div class="warning-box">
+        🚨 <b>Importante:</b> Esta análise baseia-se em dados de <b>curto prazo (2020-2025)</b>. As 'tendências' e 'hipóteses' são exercícios exploratórios e <b>NÃO são previsões climáticas definitivas</b>. Previsões rigorosas exigem séries históricas de dados de décadas e modelos climáticos complexos e validados.
+    </div>
+    """, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
         # --- HIPÓTESE 1: ANÁLISE DE TENDÊNCIA ANUAL ---
         st.subheader("1. 📈 Hipótese de Tendência Anual")
+        st.markdown("Analisamos a média anual da variável para identificar se há um padrão de aumento, diminuição ou estabilidade ao longo do tempo. 👀")
 
         # Calcula a média anual da variável para a região
         media_anual = df_regiao.groupby('Ano')[coluna_var].mean().dropna()
@@ -204,44 +272,44 @@ try:
             trend_line = slope * anos_validos + intercept
             
             # Gráfico de Tendência
-            fig_trend, ax_trend = plt.subplots(figsize=(7, 4)) # Ajuste para caber na coluna
-            ax_trend.plot(anos_validos, valores_validos, marker='o', linestyle='-', color='dodgerblue', label='Média Anual Observada')
-            ax_trend.plot(anos_validos, trend_line, linestyle='--', color='red', label='Linha de Tendência', linewidth=2)
-            ax_trend.set_title(f'Tendência Anual de {nome_var} em {regiao_selecionada}', fontsize=14)
-            ax_trend.set_xlabel('Ano', fontsize=11)
-            ax_trend.set_ylabel(f'Média Anual ({unidade_var})', fontsize=11)
-            ax_trend.grid(True, linestyle='--', alpha=0.5)
-            ax_trend.legend(fontsize=9)
+            fig_trend, ax_trend = plt.subplots(figsize=(8, 5)) # Ajuste para caber na coluna e ser mais visível
+            ax_trend.plot(anos_validos, valores_validos, marker='o', markersize=7, linestyle='-', color='#007BFF', label='Média Anual Observada') # Azul vibrante
+            ax_trend.plot(anos_validos, trend_line, linestyle='--', color='#DC3545', label='Linha de Tendência', linewidth=2.5) # Vermelho intenso
+            ax_trend.set_title(f'Tendência Anual de {nome_var} em {regiao_selecionada}', fontsize=16, color='#34495E')
+            ax_trend.set_xlabel('Ano', fontsize=12, color='#555555')
+            ax_trend.set_ylabel(f'Média Anual ({unidade_var})', fontsize=12, color='#555555')
+            ax_trend.grid(True, linestyle=':', alpha=0.6, color='lightgray')
+            ax_trend.legend(fontsize=10)
             plt.tight_layout()
             st.pyplot(fig_trend)
 
             # Interpretação da tendência
             if abs(slope) > 0.05: # Limiar para considerar uma tendência significativa
                 tendencia_direcao = "aumento" if slope > 0 else "diminuição"
-                emoji_tendencia = "🔥" if slope > 0 else "❄️" # Para temperatura/calor
+                emoji_tendencia = "🔥" if slope > 0 and nome_var == 'Temperatura Média (°C)' else "❄️" if slope < 0 and nome_var == 'Temperatura Média (°C)' else ""
                 if nome_var == 'Precipitação Total (mm)':
                     emoji_tendencia = "🌧️" if slope > 0 else "☀️" # Para chuva/seca
                 elif nome_var == 'Radiação Global (Kj/m²)':
                     emoji_tendencia = "☀️" if slope > 0 else "☁️" # Para radiação/nublado
 
                 st.markdown(f"""
-                <div style="background-color:#e6f7ff; padding: 15px; border-radius: 10px; border-left: 5px solid #2196f3; margin-top: 10px;">
-                    <p style="font-size:1.05em;">{emoji_tendencia} **Tendência de {tendencia_direcao.capitalize()}:** Observamos uma tendência de **{tendencia_direcao}** na {nome_var.lower()} para a região {regiao_selecionada}. A uma taxa de `{slope:.3f} {unidade_var}/ano`, a hipótese é que a região pode enfrentar **condições progressivamente {tendencia_direcao.replace('aumento', 'mais intensas').replace('diminuição', 'mais amenas')}** se essa tendência de curto prazo continuar.
-                    </p>
+                <div class="info-box">
+                    {emoji_tendencia} <b>Tendência de {tendencia_direcao.capitalize()}:</b> Observamos uma tendência de <b>{tendencia_direcao}</b> na {nome_var.lower()} para a região {regiao_selecionada}. A uma taxa de <code>{slope:.3f} {unidade_var}/ano</code>, a hipótese é que a região pode enfrentar <b>condições progressivamente {tendencia_direcao.replace('aumento', 'mais intensas').replace('diminuição', 'mais amenas')}</b> se essa tendência de curto prazo continuar.
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
-                <div style="background-color:#fffde7; padding: 15px; border-radius: 10px; border-left: 5px solid #ffeb3b; margin-top: 10px;">
-                    <p style="font-size:1.05em;">⚖️ **Tendência de Estabilidade:** A linha de tendência é quase plana (`{slope:.3f} {unidade_var}/ano`), sugerindo **relativa estabilidade** na média anual de {nome_var.lower()} na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas com atenção à variabilidade entre os anos.</p>
+                <div class="success-box">
+                    ⚖️ <b>Tendência de Estabilidade:</b> A linha de tendência é quase plana (<code>{slope:.3f} {unidade_var}/ano</code>), sugerindo <b>relativa estabilidade</b> na média anual de {nome_var.lower()} na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas com atenção à variabilidade entre os anos.
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("Dados insuficientes (menos de 2 anos com valores válidos) para calcular uma tendência anual para esta variável e região.")
+            st.info("Dados insuficientes (menos de 2 anos com valores válidos) para calcular uma tendência anual para esta variável e região. 📊")
 
     with col2:
         # --- HIPÓTESE 2: ANÁLISE DE VARIABILIDADE E EXTREMOS ---
         st.subheader("2. 🌪️ Hipótese de Variabilidade Interanual")
+        st.markdown("Compreenda quão 'estáveis' ou 'voláteis' foram os anos em relação à média histórica mensal. Anos com grandes desvios podem indicar eventos climáticos extremos. 💥")
         
         # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
         if not df_valores_anuais.empty and not media_historica_mensal.empty:
@@ -252,37 +320,48 @@ try:
                 ano_mais_atipico = desvios_abs_anuais.idxmax()
                 maior_desvio = desvios_abs_anuais.max()
                 
-                st.markdown(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
                 st.markdown(f"""
-                <div style="background-color:#ffebee; padding: 15px; border-radius: 10px; border-left: 5px solid #f44336; margin-top: 10px;">
-                    <p style="font-size:1.05em;">
-                        🔥 O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo), com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica do período. Isso sugere maior instabilidade climática neste ano.
-                    </p>
+                <div class="error-box">
+                    🔥 Na Região <b>{regiao_selecionada}</b>, para a variável <b>{nome_var}</b>, o ano de <b>{int(ano_mais_atipico)}</b> se destaca como o <b>mais atípico</b> (ou extremo), com as médias mensais se afastando em média <b>{maior_desvio:.2f} {unidade_var}</b> da média histórica do período. Isso pode sugerir maior instabilidade climática neste ano.
                 </div>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("""
-                **Hipótese de Variabilidade:** Se os anos mais recentes (ex: 2024, 2025) aparecem consistentemente com os maiores desvios, isso pode sugerir que **o clima na região está se tornando mais variável e propenso a extremos**. Anos que se desviam significativamente da média (para cima ou para baixo) podem se tornar mais frequentes, impactando planejamento e recursos.
-                """)
+                <b>Hipótese de Variabilidade:</b> Se os anos mais recentes (ex: 2024, 2025) aparecem consistentemente com os maiores desvios, isso pode sugerir que <b>o clima na região está se tornando mais variável e propenso a extremos</b>. Anos que se desviam significativamente da média (para cima ou para baixo) podem se tornar mais frequentes, impactando planejamento e recursos. 🌍
+                """, unsafe_allow_html=True)
 
                 st.write("📊 **Ranking de Anos por Desvio (Atipicidade):**")
                 desvios_df = pd.DataFrame(desvios_abs_anuais.sort_values(ascending=False), columns=['Desvio Médio Absoluto'])
-                st.dataframe(desvios_df.style.format("{:.2f}"), use_container_width=True)
+                st.dataframe(desvios_df.style.format("{:.2f}").set_properties(**{'background-color': '#f2f2f2', 'color': 'black'}), use_container_width=True)
             else:
-                st.info("Não há dados de desvio significativos para realizar a análise de variabilidade anual.")
+                st.info("Não há dados de desvio significativos para realizar a análise de variabilidade anual. 📉")
         else:
-            st.info("Dados insuficientes para calcular a variabilidade anual (médias mensais ou históricas vazias).")
+            st.info("Dados insuficientes para calcular a variabilidade anual (médias mensais ou históricas vazias). 🧐")
 
     st.markdown("---")
-    st.markdown("🌟 Desenvolvido com paixão e dados por [Seu Nome/Equipe] 🌟")
+    st.markdown("🌟 Desenvolvido com paixão e dados para uma jornada climática inesquecível! Por [Seu Nome/Equipe] 🚀")
 
 # --- TRATAMENTO GERAL DE ERROS ---
 except FileNotFoundError:
-    st.error(f"❌ **Erro Crítico:** O arquivo de dados '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a existência do arquivo na pasta `medias`.")
-    st.info("💡 **Dica:** Certifique-se de que o arquivo `medias_mensais_geo_2020_2025.csv` está localizado corretamente na pasta `medias` dentro do seu projeto.")
+    st.error(f"""
+    <div class="error-box">
+        ❌ <b>Erro Crítico:</b> O arquivo de dados <code>'{caminho_arquivo_unificado}'</code> não foi encontrado.<br>
+        Por favor, verifique o caminho e a existência do arquivo na pasta <code>medias</code>.
+        <br>💡 <b>Dica:</b> Certifique-se de que o arquivo <code>medias_mensais_geo_2020_2025.csv</code> está localizado corretamente na pasta <code>medias</code> dentro do seu projeto.
+    </div>
+    """, unsafe_allow_html=True)
 except KeyError as e:
-    st.error(f"❌ **Erro de Dados:** A coluna esperada '{e}' não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto e se o arquivo está no formato esperado.")
-    st.info("💡 **Dica:** O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês', e 'Temp_Media' (ou 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para cálculo), além de 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' e 'RADIACAO GLOBAL (Kj/m²)'.")
+    st.error(f"""
+    <div class="error-box">
+        ❌ <b>Erro de Dados:</b> A coluna esperada <code>'{e}'</code> não foi encontrada no arquivo CSV.<br>
+        Verifique se o nome da coluna está correto e se o arquivo está no formato esperado.
+        <br>💡 <b>Dica:</b> O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês', e 'Temp_Media' (ou 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' para cálculo), além de 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)' e 'RADIACAO GLOBAL (Kj/m²)'.
+    </div>
+    """, unsafe_allow_html=True)
 except Exception as e:
-    st.error(f"💥 **Ops! Ocorreu um erro inesperado:** {e}")
-    st.warning("🔄 **Sugestão:** Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.")
+    st.error(f"""
+    <div class="error-box">
+        💥 <b>Ops! Ocorreu um erro inesperado:</b> {e}<br>
+        🔄 <b>Sugestão:</b> Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.
+    </div>
+    """, unsafe_allow_html=True)
