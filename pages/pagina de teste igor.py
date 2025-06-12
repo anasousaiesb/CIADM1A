@@ -283,4 +283,4 @@ except Exception as e:
     st.warning("🔄 **Sugestão:** Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.")
 
 st.markdown("---")
-st.markdown("Desenvolvido com 💙 e dados abertos para o conhecimento climático. [Seu Nome/Equipe] © 2025")
+st.markdown("Desenvolvido com 💙 e dados abertos para o conhecimento climático. [Ana Sophia e Igor Andrade] © 2025")
