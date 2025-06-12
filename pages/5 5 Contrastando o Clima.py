@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
-from matplotlib.cm import get_cmap # Not directly used in the final version but good to keep if styling changes
+from matplotlib.cm import get_cmap
 
 # --- Configurações Iniciais e Estilo da Página ---
 st.set_page_config(
@@ -12,8 +12,8 @@ st.set_page_config(
     page_icon="🇧🇷" # Changed to Brazil flag
 )
 
-# Título Principal da Aplicação
-st.title("🌍 Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️") # More engaging title
+# Título Principal da Aplicação Centralizado
+st.markdown("<h1 style='text-align: center;'>🌍 Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️</h1>", unsafe_allow_html=True)
 
 st.markdown("""
 Prepare-se para uma **imersão visual fascinante** nos dados climáticos brasileiros! 🚀 Descubra as
@@ -78,23 +78,23 @@ def carregar_dados(caminho: str) -> pd.DataFrame:
 df_unificado = carregar_dados(caminho_arquivo_unificado)
 
 # --- Interface do Usuário na Barra Lateral ---
-st.sidebar.header("⚙️ Opções de Análise Climática") # More descriptive header
+st.sidebar.header("⚙️ Opções de Análise Climática")
 
 # Obter lista única de regiões para o selectbox, ordenadas alfabeticamente
 regioes = sorted(df_unificado['Regiao'].unique())
 
 # Seleção de Região
 regiao_selecionada = st.sidebar.selectbox(
-    "📍 Escolha a Região para Comparação:", # Added emoji
+    "📍 Escolha a Região para Comparação:",
     regioes,
     help="Selecione uma região do Brasil para visualizar as tendências de temperatura e precipitação."
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info("✨ **Insights Climáticos:** Dados detalhados para desvendar os mistérios do clima brasileiro! 📊") # More engaging info box
+st.sidebar.info("✨ **Insights Climáticos:** Dados detalhados para desvendar os mistérios do clima brasileiro! 📊")
 
 # --- Seção Principal da Aplicação ---
-st.subheader(f"📈 Observando o Clima em {regiao_selecionada}: 2020 vs. 2024 🧐") # More engaging subheader
+st.subheader(f"📈 Observando o Clima em {regiao_selecionada}: 2020 vs. 2024 🧐")
 st.markdown("""
 Aqui você verá um **comparativo dinâmico** dos padrões de **Temperatura Média** 🌡️ e **Precipitação Total** 💧
 para a região que você selecionou. As diferenças entre **2020** e **2024** podem revelar tendências climáticas
@@ -136,11 +136,11 @@ else:
         fig_temp, ax_temp = plt.subplots(figsize=(10, 6))
 
         ax_temp.plot(df_2020_comp.index, df_2020_comp['Temp_Media'], marker='o', linestyle='-',
-                     color='purple', label='Temperatura Média 2020 💜', linewidth=2, markersize=7) # Added emoji
+                     color='purple', label='Temperatura Média 2020 💜', linewidth=2, markersize=7)
         ax_temp.plot(df_2024_comp.index, df_2024_comp['Temp_Media'], marker='o', linestyle='--',
-                     color='orange', label='Temperatura Média 2024 🧡', linewidth=2, markersize=7) # Added emoji
+                     color='orange', label='Temperatura Média 2024 🧡', linewidth=2, markersize=7)
 
-        ax_temp.set_title(f'🌡️ Temperatura Média Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold') # Added emoji
+        ax_temp.set_title(f'🌡️ Temperatura Média Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold')
         ax_temp.set_xlabel('Mês', fontsize=12)
         ax_temp.set_ylabel('Temperatura Média (°C)', fontsize=12)
         ax_temp.set_xticks(range(1, 13))
@@ -156,11 +156,11 @@ else:
 
         bar_width = 0.4
         ax_prec.bar(df_2020_comp.index - bar_width/2, df_2020_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
-                    width=bar_width, color='darkgreen', label='Precipitação 2020 🌳', alpha=0.8) # Added emoji
+                    width=bar_width, color='darkgreen', label='Precipitação 2020 🌳', alpha=0.8)
         ax_prec.bar(df_2024_comp.index + bar_width/2, df_2024_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
-                    width=bar_width, color='skyblue', label='Precipitação 2024 💧', alpha=0.8) # Added emoji
+                    width=bar_width, color='skyblue', label='Precipitação 2024 💧', alpha=0.8)
 
-        ax_prec.set_title(f'☔ Volume Total de Precipitação Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold') # Added emoji
+        ax_prec.set_title(f'☔ Volume Total de Precipitação Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold')
         ax_prec.set_xlabel('Mês', fontsize=12)
         ax_prec.set_ylabel('Precipitação Total (mm)', fontsize=12)
         ax_prec.set_xticks(range(1, 13))
@@ -173,7 +173,7 @@ else:
 st.markdown("---")
 
 # --- ANÁLISE PROFUNDA E JUSTIFICATIVA ---
-st.header(f"🤔 2020 vs. 2024 na Região {regiao_selecionada}: Eventos Climáticos ou Variabilidade Natural? 🌍") # Added emojis
+st.header(f"🤔 2020 vs. 2024 na Região {regiao_selecionada}: Eventos Climáticos ou Variabilidade Natural? 🌍")
 st.markdown(f"""
 Ao confrontar os padrões climáticos de **2020** e **2024** para a **Região {regiao_selecionada}**,
 podemos extrair **insights cruciais** sobre a natureza do clima local. As diferenças visíveis nos gráficos
@@ -235,9 +235,3 @@ st.markdown("""
     Desenvolvido com ❤️ para análise climática no Brasil.
 </div>
 """, unsafe_allow_html=True)
-
-# Lembre-se: Para rodar este código, você precisa ter o Streamlit instalado
-# (`pip install streamlit pandas matplotlib`) e salvar o código como um arquivo `.py`
-# (ex: `app_clima.py`). Coloque o arquivo `medias_mensais_geo_2020_2025.csv`
-# dentro de uma pasta `medias` no mesmo diretório da aplicação.
-# Em seguida, execute no terminal: `streamlit run app_clima.py`
