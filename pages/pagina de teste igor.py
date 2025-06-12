@@ -12,13 +12,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Definindo o caminho do arquivo de dados (ajuste conforme a localização real do seu arquivo)
+# Certifique-se de que 'medias_mensais_geo_2020_2025.csv' está na pasta 'medias'
+caminho_arquivo_unificado = os.path.join('medias', 'medias_mensais_geo_2020_2025.csv')
+
 # --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data(show_spinner="Carregando e processando os dados climáticos... ⏳")
 def carregar_dados(caminho):
     """Carrega e processa o arquivo de dados climáticos."""
     df = pd.read_csv(caminho)
     
-    # Mapeamento de abreviações de regiões para nomes completos (se não existir, cria um genérico)
+    # Mapeamento de abreviações de regiões para nomes completos
     mapa_regioes = {
         "CO": "Centro-Oeste",
         "NE": "Nordeste",
@@ -26,7 +30,6 @@ def carregar_dados(caminho):
         "S": "Sul",
         "SE": "Sudeste"
     }
-    # Aplica o mapeamento ou mantém o valor original se não mapeado
     df['Regiao'] = df['Regiao'].apply(lambda x: mapa_regioes.get(x, x)) 
     
     # Calcula a Temp_Media se as colunas de max/min existirem
@@ -35,7 +38,6 @@ def carregar_dados(caminho):
         df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] + 
                             df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
     elif 'Temp_Media' not in df.columns:
-        # Se não há como calcular e a coluna não existe, levanta um erro específico
         raise KeyError("Coluna 'Temp_Media' não encontrada e não pôde ser calculada a partir das colunas de máxima e mínima. Verifique seu CSV.")
 
     # Converte colunas para numérico, tratando erros
@@ -63,6 +65,30 @@ st.markdown("""
     .medium-font {
         font-size:15px !important;
         color: #4682b4; /* SteelBlue */
+    }
+    .stSelectbox label {
+        font-weight: bold;
+        color: #333333;
+    }
+    .stButton>button {
+        background-color: #4CAF50; /* Green */
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 8px;
+        border: none;
+    }
+    .stMarkdown h2 {
+        color: #0F4C75; /* Darker Blue */
+        font-size: 24px;
+        border-bottom: 2px solid #0F4C75;
+        padding-bottom: 5px;
+        margin-top: 30px;
     }
 </style>
 <p class="big-font">Explore e compreenda as **variações sazonais** e **tendências anuais** das principais variáveis climáticas nas regiões do Brasil.</p>
@@ -218,7 +244,6 @@ try:
         st.subheader("2. 🌪️ Hipótese de Variabilidade Interanual")
         
         # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
-        # Requer que df_valores_anuais tenha sido populado no bloco do gráfico principal
         if not df_valores_anuais.empty and not media_historica_mensal.empty:
             desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean()
             desvios_abs_anuais = desvios_abs_anuais.dropna()
