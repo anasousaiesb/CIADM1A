@@ -2,10 +2,46 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 import os
+import numpy as np
 from matplotlib.cm import get_cmap
 
 # --- Configurações da Página ---
-st.set_page_config(layout="wide", page_title="Análise Climática Sazonal do Brasil 🇧🇷")
+st.set_page_config(
+    layout="wide",
+    page_title="Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌡️", # Updated page title
+    page_icon="🇧🇷" 
+)
+
+# --- CSS para estilização aprimorada do título (Aplicado do design anterior) ---
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # --- Caminho Relativo do Arquivo CSV ---
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
@@ -19,18 +55,6 @@ mapa_regioes = {
     "SE": "Sudeste"
 }
 
-# --- Título Principal ---
-st.title("🌎 Padrões Sazonais de Temperatura (2020-2025) no Brasil")
-st.markdown("---")
-st.markdown(
-    """
-    Explore e compare as **tendências de temperatura média** em diferentes regiões do país.
-    Este aplicativo interativo permite identificar meses e anos com **comportamentos climáticos atípicos**,
-    oferecendo uma visão clara das variações sazonais ao longo do período de 2020 a 2025.
-    """
-)
-st.markdown("---")
-
 # --- Carregamento e Preparação dos Dados ---
 @st.cache_data # Cache os dados para evitar recarregamento em cada interação
 def carregar_dados(caminho):
@@ -40,6 +64,20 @@ def carregar_dados(caminho):
 
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
+
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌎🌡️📊</h1>', unsafe_allow_html=True) # New Title
+    st.markdown("""
+    <p class="subtitle">
+        Explore e compare as **tendências de temperatura média** em diferentes regiões do país.
+        Este aplicativo interativo permite identificar meses e anos com **comportamentos climáticos atípicos**,
+        oferecendo uma visão clara das variações sazonais ao longo do período de 2020 a 2025.
+    </p>
+    """, unsafe_allow_html=True) # New Subtitle
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("---") # Separator after the header
 
     # --- Seleção de Regiões na Barra Lateral ---
     st.sidebar.header("✨ Escolha suas Regiões para Comparação")
@@ -68,8 +106,9 @@ try:
     st.subheader(f"📈 Gráficos de Temperatura Média Mensal: **{regiao_a}** vs. **{regiao_b}**")
     st.markdown("Acompanhe a trajetória da temperatura mês a mês, ano a ano.")
     
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True) # Aumenta o tamanho do gráfico
-    plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade para melhor leitura
+    # Adjusted figsize for less flattened plots and changed style
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8), sharey=True) # Increased height
+    plt.style.use('ggplot') # Changed style to ggplot
 
     analise_regioes = {regiao_a: {}, regiao_b: {}}
     meses_atipicos_geral = pd.DataFrame()
@@ -96,7 +135,6 @@ try:
             analise_regioes[regiao]['mes_mais_quente'] = 'N/A'
             analise_regioes[regiao]['mes_mais_frio'] = 'N/A'
 
-
         atipicos_regiao = medias_mensais[
             (medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)
         ].copy() # Usar .copy() para evitar SettingWithCopyWarning
@@ -104,7 +142,6 @@ try:
         atipicos_regiao['Regiao'] = regiao # Adiciona a coluna de região aos atípicos
         analise_regioes[regiao]['num_atipicos'] = len(atipicos_regiao)
         meses_atipicos_geral = pd.concat([meses_atipicos_geral, atipicos_regiao])
-
 
         for ano in anos:
             df_ano_regiao = medias_mensais[medias_mensais['Ano'] == ano]
@@ -151,7 +188,7 @@ try:
     # --- Análise Dinâmica Comparativa ---
     st.markdown("---")
     st.subheader("💡 Análise Comparativa Detalhada entre as Regiões")
-    st.markdown("Entenda as nuances climáticas e compare as características térmicas de **{regiao_a}** e **{regiao_b}**.")
+    st.markdown(f"Entenda as nuances climáticas e compare as características térmicas de **{regiao_a}** e **{regiao_b}**.")
     
     # Usando colunas para um layout mais organizado
     col1, col2 = st.columns(2)
@@ -217,4 +254,8 @@ except Exception as e:
     st.warning("🔄 **Sugestão:** Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.")
 
 st.markdown("---")
-st.markdown("🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟")
+st.markdown("""
+<div style='text-align: center; font-size: small; color: gray;'>
+    🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟
+</div>
+""", unsafe_allow_html=True)
