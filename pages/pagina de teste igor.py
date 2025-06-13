@@ -106,7 +106,8 @@ try:
     st.subheader(f"📈 Gráficos de Temperatura Média Mensal: **{regiao_a}** vs. **{regiao_b}**")
     st.markdown("Acompanhe a trajetória da temperatura mês a mês, ano a ano.")
     
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True) # Aumenta o tamanho do gráfico
+    # Adjusted figsize for less flattened plots
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8), sharey=True) # Increased height
     plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade para melhor leitura
 
     analise_regioes = {regiao_a: {}, regiao_b: {}}
