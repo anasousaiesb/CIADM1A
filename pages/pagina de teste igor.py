@@ -259,4 +259,3 @@ st.markdown("""
     🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟
 </div>
 """, unsafe_allow_html=True)
-
