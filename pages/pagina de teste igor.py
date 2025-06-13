@@ -5,14 +5,14 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- CONFIGURAÇÕES INICIAIS ---
+# --- Configurações da Página ---
 st.set_page_config(
     layout="wide",
-    page_title="Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024", # Updated page title
+    page_title="Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌡️", # Updated page title
     page_icon="🇧🇷" 
 )
 
-# CSS para estilização aprimorada do título (from previous design)
+# --- CSS para estilização aprimorada do título (Aplicado do design anterior) ---
 st.markdown("""
 <style>
 .stApp {
@@ -43,225 +43,218 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Caminho relativo ao arquivo CSV
+# --- Caminho Relativo do Arquivo CSV ---
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-# --- Função para Carregar e Preparar os Dados ---
-@st.cache_data
-def carregar_dados(caminho: str) -> pd.DataFrame:
-    """
-    Carrega e processa o arquivo de dados climáticos CSV.
-    Realiza o cálculo da temperatura média se as colunas de máxima e mínima estiverem presentes,
-    e garante que as colunas essenciais estejam no DataFrame.
+# --- Dicionário para Mapear Abrevições das Regiões ---
+mapa_regioes = {
+    "CO": "Centro-Oeste",
+    "NE": "Nordeste",
+    "N": "Norte",
+    "S": "Sul",
+    "SE": "Sudeste"
+}
 
-    Args:
-        caminho (str): O caminho para o arquivo CSV de dados climáticos.
-
-    Returns:
-        pd.DataFrame: O DataFrame processado com os dados climáticos.
-
-    Raises:
-        st.error: Interrompe a execução do Streamlit se colunas críticas estiverem faltando.
-    """
-    try:
-        df = pd.read_csv(caminho)
-    except FileNotFoundError:
-        st.error(f"🚫 Erro Crítico: O arquivo '{caminho}' não foi encontrado. Verifique o caminho e a localização do arquivo. 📂")
-        st.stop()
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar o arquivo CSV: {e}. Por favor, verifique a integridade do arquivo. 🧐")
-        st.stop()
-
-    # Calcula a Temp_Media se as colunas de max/min existirem
-    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
-       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
-        df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-                            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
-    elif 'Temp_Media' not in df.columns:
-        st.error("🚨 Erro Crítico: A coluna 'Temp_Media' não existe e não pôde ser calculada. Certifique-se de que seu CSV possui 'TEMPERATURA MÁXIMA...' e 'TEMPERATURA MÍNIMA...' ou 'Temp_Media' diretamente. ⚠️")
-        st.stop()
-
-    # Converte colunas essenciais para numérico, tratando erros com 'coerce'
-    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
-    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-
-    # Garante que as colunas necessárias para a análise existem
-    required_cols = ['Temp_Media', 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)', 'Regiao', 'Mês', 'Ano']
-    for col in required_cols:
-        if col not in df.columns:
-            st.error(f"🛑 Erro Crítico: A coluna '{col}' não foi encontrada no arquivo CSV. Verifique seu arquivo e tente novamente. 🛠️")
-            st.stop()
-
-    # Remove linhas com valores nulos nas colunas críticas após a conversão
-    df = df.dropna(subset=required_cols)
+# --- Carregamento e Preparação dos Dados ---
+@st.cache_data # Cache os dados para evitar recarregamento em cada interação
+def carregar_dados(caminho):
+    df = pd.read_csv(caminho)
+    df['Regiao'] = df['Regiao'].map(mapa_regioes)
     return df
 
-# --- Carregamento dos Dados e Tratamento de Erros Iniciais ---
-df_unificado = carregar_dados(caminho_arquivo_unificado)
+try:
+    df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-# --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
-st.markdown('<div class="header-section">', unsafe_allow_html=True)
-st.markdown('<h1 class="main-title">Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️</h1>', unsafe_allow_html=True) # Updated title
-st.markdown("""<p class="subtitle">Prepare-se para uma **imersão visual fascinante** nos dados climáticos brasileiros! 🚀 Descubra as
-dinâmicas de **temperatura** e **precipitação** entre os anos de **2020** e **2024**, e explore
-como o nosso clima 🇧🇷 variou em diferentes regiões do país. Vamos nessa?</p>""", unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌎🌡️📊</h1>', unsafe_allow_html=True) # New Title
+    st.markdown("""
+    <p class="subtitle">
+        Explore e compare as **tendências de temperatura média** em diferentes regiões do país.
+        Este aplicativo interativo permite identificar meses e anos com **comportamentos climáticos atípicos**,
+        oferecendo uma visão clara das variações sazonais ao longo do período de 2020 a 2025.
+    </p>
+    """, unsafe_allow_html=True) # New Subtitle
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("---") # Separator after the header
 
-# --- Interface do Usuário na Barra Lateral ---
-st.sidebar.header("⚙️ Opções de Análise Climática")
+    # --- Seleção de Regiões na Barra Lateral ---
+    st.sidebar.header("✨ Escolha suas Regiões para Comparação")
+    regioes_disponiveis = sorted(df_unificado['Regiao'].dropna().unique())
 
-# Obter lista única de regiões para o selectbox, ordenadas alfabeticamente
-regioes = sorted(df_unificado['Regiao'].unique())
+    # Definir índices padrão para evitar erros se as regiões não existirem
+    default_index_sul = regioes_disponiveis.index("Sul") if "Sul" in regioes_disponiveis else 0
+    default_index_norte = regioes_disponiveis.index("Norte") if "Norte" in regioes_disponiveis else (1 if len(regioes_disponiveis) > 1 else 0)
 
-# Seleção de Região
-regiao_selecionada = st.sidebar.selectbox(
-    "📍 Escolha a Região para Comparação:",
-    regioes,
-    help="Selecione uma região do Brasil para visualizar as tendências de temperatura e precipitação."
-)
+    regiao_a = st.sidebar.selectbox("📍 **Região A**", regioes_disponiveis, index=default_index_sul)
+    regiao_b = st.sidebar.selectbox("📍 **Região B**", regioes_disponiveis, index=default_index_norte)
 
-st.sidebar.markdown("---")
-st.sidebar.info("✨ **Insights Climáticos:** Dados detalhados para desvendar os mistérios do clima brasileiro! 📊")
+    # Verifica se as regiões selecionadas são diferentes
+    if regiao_a == regiao_b:
+        st.sidebar.warning("⚠️ Por favor, selecione duas regiões **diferentes** para uma análise comparativa eficaz.")
+        st.stop() # Interrompe a execução para que o usuário selecione regiões distintas
 
-# --- Seção Principal da Aplicação ---
-st.subheader(f"📈 Observando o Clima em {regiao_selecionada}: 2020 vs. 2024 🧐")
-st.markdown("""
-Aqui você verá um **comparativo dinâmico** dos padrões de **Temperatura Média** 🌡️ e **Precipitação Total** 💧
-para a região que você selecionou. As diferenças entre **2020** e **2024** podem revelar tendências climáticas
-importantes ou a **variabilidade natural** do nosso clima. Fique atento aos detalhes! 👀
-""")
+    coluna_temp = 'Temp_Media'
 
-# Filtrar dados para a região selecionada e os anos 2020 e 2024
-df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada]
+    # --- Cores para os Anos (Melhorado e Vibrante) ---
+    cmap = get_cmap('viridis') # Uma paleta de cores mais vibrante e perceptível
+    anos = sorted(df_unificado['Ano'].unique())
+    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
 
-# Agrupar e reindexar dados por mês para 2020 e 2024
-df_2020 = df_regiao[df_regiao['Ano'] == 2020].groupby('Mês').agg({
-    'Temp_Media': 'mean',
-    'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
-}).reindex(range(1, 13))
+    # --- Geração dos Gráficos de Linha ---
+    st.subheader(f"📈 Gráficos de Temperatura Média Mensal: **{regiao_a}** vs. **{regiao_b}**")
+    st.markdown("Acompanhe a trajetória da temperatura mês a mês, ano a ano.")
+    
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True) # Aumenta o tamanho do gráfico
+    plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade para melhor leitura
 
-df_2024 = df_regiao[df_regiao['Ano'] == 2024].groupby('Mês').agg({
-    'Temp_Media': 'mean',
-    'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)': 'sum'
-}).reindex(range(1, 13))
+    analise_regioes = {regiao_a: {}, regiao_b: {}}
+    meses_atipicos_geral = pd.DataFrame()
 
-# Remover meses onde não há dados para ambos os anos na comparação de gráficos
-df_2020_comp = df_2020.dropna()
-df_2024_comp = df_2024.dropna()
+    for i, regiao in enumerate([regiao_a, regiao_b]):
+        df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
+        medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
 
-if df_2020_comp.empty or df_2024_comp.empty:
-    st.warning(f"⚠️ Dados insuficientes para 2024 na Região {regiao_selecionada}. Não foi possível realizar a comparação completa dos gráficos. 😔")
-else:
-    # Mapeamento de números de mês para nomes abreviados
-    nomes_meses = {
-        1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
-        7: 'Jul', 8: 'Ago', 9: 'Set', 10: 'Out', 11: 'Nov', 12: 'Dez'
-    }
+        # Cálculos para análise dinâmica de atipicidade
+        media_geral = medias_mensais[coluna_temp].mean()
+        desvio_padrao = medias_mensais[coluna_temp].std()
+        limite_superior = media_geral + 1.5 * desvio_padrao # Limite superior para atípicos
+        limite_inferior = media_geral - 1.5 * desvio_padrao # Limite inferior para atípicos
+        
+        # Armazenar métricas para análise
+        analise_regioes[regiao]['media'] = round(media_geral, 1)
+        analise_regioes[regiao]['amplitude'] = round(medias_mensais[coluna_temp].max() - medias_mensais[coluna_temp].min(), 1)
+        
+        # Para evitar erro se idxmax() ou idxmin() retornarem vazio
+        if not medias_mensais.empty:
+            analise_regioes[regiao]['mes_mais_quente'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmax(), 'Mês']
+            analise_regioes[regiao]['mes_mais_frio'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmin(), 'Mês']
+        else:
+            analise_regioes[regiao]['mes_mais_quente'] = 'N/A'
+            analise_regioes[regiao]['mes_mais_frio'] = 'N/A'
 
-    # Layout de colunas para os gráficos
+        atipicos_regiao = medias_mensais[
+            (medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)
+        ].copy() # Usar .copy() para evitar SettingWithCopyWarning
+        
+        atipicos_regiao['Regiao'] = regiao # Adiciona a coluna de região aos atípicos
+        analise_regioes[regiao]['num_atipicos'] = len(atipicos_regiao)
+        meses_atipicos_geral = pd.concat([meses_atipicos_geral, atipicos_regiao])
+
+        for ano in anos:
+            df_ano_regiao = medias_mensais[medias_mensais['Ano'] == ano]
+            if not df_ano_regiao.empty:
+                axes[i].plot(df_ano_regiao['Mês'], df_ano_regiao[coluna_temp], marker='o', linestyle='-',
+                             color=cores_anos[ano], label=f'{ano}', linewidth=2) # Linhas mais grossas
+
+        axes[i].set_title(f"Termômetro de {regiao}", fontsize=18, color='#333333') # Título mais impactante
+        axes[i].set_xlabel("Mês do Ano", fontsize=14)
+        if i == 0: # Apenas para o primeiro gráfico
+            axes[i].set_ylabel("Temperatura Média (°C)", fontsize=14)
+        axes[i].set_xticks(range(1, 13))
+        axes[i].set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], fontsize=12)
+        axes[i].tick_params(axis='both', which='major', labelsize=12)
+        axes[i].legend(title="Ano", fontsize=11, title_fontsize=13, bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        # Adiciona a faixa de atipicidade com uma cor suave
+        axes[i].axhspan(limite_inferior, limite_superior, color='gold', alpha=0.15, label='Faixa Típica (±1.5 DP)')
+        # Adiciona a linha da média geral
+        axes[i].axhline(media_geral, color='purple', linestyle='--', linewidth=1.5, label=f'Média Geral ({media_geral:.1f}°C)')
+        axes[i].grid(True, linestyle=':', alpha=0.7) # Grid mais suave
+
+    plt.tight_layout(rect=[0, 0, 0.95, 1]) # Ajusta o layout para a legenda não cortar
+    st.pyplot(fig)
+
+    # --- Exibir os Meses/Anos Atípicos ---
+    st.markdown("---")
+    st.subheader("🚨 Meses e Anos com Temperaturas Atípicas Identificadas")
+    st.markdown(
+        """
+        Estas são as ocorrências onde a temperatura média mensal se desviou **significativamente** do padrão
+        (fora de $\pm 1.5$ vezes o desvio padrão).
+        """
+    )
+    
+    if not meses_atipicos_geral.empty:
+        # Renomear colunas para melhor clareza
+        meses_atipicos_geral = meses_atipicos_geral.rename(columns={'Mês': 'Mês (Número)', 'Temp_Media': 'Temperatura Média (°C)'})
+        st.dataframe(meses_atipicos_geral[['Regiao', 'Ano', 'Mês (Número)', 'Temperatura Média (°C)']].sort_values(by=['Regiao', 'Ano', 'Mês (Número)']), use_container_width=True)
+    else:
+        st.info("🎉 Nenhuma temperatura atípica foi identificada para as regiões e período selecionados. Que boa notícia!")
+
+
+    # --- Análise Dinâmica Comparativa ---
+    st.markdown("---")
+    st.subheader("💡 Análise Comparativa Detalhada entre as Regiões")
+    st.markdown(f"Entenda as nuances climáticas e compare as características térmicas de **{regiao_a}** e **{regiao_b}**.")
+    
+    # Usando colunas para um layout mais organizado
     col1, col2 = st.columns(2)
 
     with col1:
-        # --- GRÁFICO DE TEMPERATURA MÉDIA ---
-        fig_temp, ax_temp = plt.subplots(figsize=(10, 6))
-
-        ax_temp.plot(df_2020_comp.index, df_2020_comp['Temp_Media'], marker='o', linestyle='-',
-                     color='purple', label='Temperatura Média 2020 💜', linewidth=2, markersize=7)
-        ax_temp.plot(df_2024_comp.index, df_2024_comp['Temp_Media'], marker='o', linestyle='--',
-                     color='orange', label='Temperatura Média 2024 🧡', linewidth=2, markersize=7)
-
-        ax_temp.set_title(f'🌡️ Temperatura Média Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold')
-        ax_temp.set_xlabel('Mês', fontsize=12)
-        ax_temp.set_ylabel('Temperatura Média (°C)', fontsize=12)
-        ax_temp.set_xticks(range(1, 13))
-        ax_temp.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
-        ax_temp.grid(True, linestyle=':', alpha=0.7)
-        ax_temp.legend(fontsize=10, loc='best')
-        plt.tight_layout()
-        st.pyplot(fig_temp)
+        st.markdown(f"""
+        <div style="background-color:#e0f7fa; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
+            <h4 style="color:#00796b;">✨ Características de {regiao_a}</h4>
+            <ul>
+                <li>🌡️ <strong>Temperatura Média Geral:</strong> <span style="color:#e65100; font-weight:bold;">{analise_regioes[regiao_a]['media']}°C</span></li>
+                <li>↔️ <strong>Amplitude Térmica Anual:</strong> <span style="color:#c2185b; font-weight:bold;">{analise_regioes[regiao_a]['amplitude']}°C</span></li>
+                <li>☀️ <strong>Mês Tipicamente Mais Quente:</strong> Mês {analise_regioes[regiao_a]['mes_mais_quente']}</li>
+                <li>❄️ <strong>Mês Tipicamente Mais Frio:</strong> Mês {analise_regioes[regiao_a]['mes_mais_frio']}</li>
+                <li>❗ <strong>Eventos Atípicos (meses fora do padrão):</strong> <span style="color:#d32f2f; font-weight:bold;">{analise_regioes[regiao_a]['num_atipicos']}</span></li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-        # --- GRÁFICO DE PRECIPITAÇÃO TOTAL ---
-        fig_prec, ax_prec = plt.subplots(figsize=(10, 6))
+        st.markdown(f"""
+        <div style="background-color:#fff3e0; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
+            <h4 style="color:#ef6c00;">✨ Características de {regiao_b}</h4>
+            <ul>
+                <li>🌡️ <strong>Temperatura Média Geral:</strong> <span style="color:#00796b; font-weight:bold;">{analise_regioes[regiao_b]['media']}°C</span></li>
+                <li>↔️ <strong>Amplitude Térmica Anual:</strong> <span style="color:#880e4f; font-weight:bold;">{analise_regioes[regiao_b]['amplitude']}°C</span></li>
+                <li>☀️ <strong>Mês Tipicamente Mais Quente:</strong> Mês {analise_regioes[regiao_b]['mes_mais_quente']}</li>
+                <li>❄️ <strong>Mês Tipicamente Mais Frio:</strong> Mês {analise_regioes[regiao_b]['mes_mais_frio']}</li>
+                <li>❗ <strong>Eventos Atípicos (meses fora do padrão):</strong> <span style="color:#d32f2f; font-weight:bold;">{analise_regioes[regiao_b]['num_atipicos']}</span></li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
-        bar_width = 0.4
-        ax_prec.bar(df_2020_comp.index - bar_width/2, df_2020_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
-                    width=bar_width, color='darkgreen', label='Precipitação 2020 🌳', alpha=0.8)
-        ax_prec.bar(df_2024_comp.index + bar_width/2, df_2024_comp['PRECIPITAÇÃO TOTAL, HORÁRIO (mm)'],
-                    width=bar_width, color='skyblue', label='Precipitação 2024 💧', alpha=0.8)
+    st.markdown("---")
+    st.subheader("🔬 Insights e Interpretações dos Dados")
+    st.markdown(f"""
+    <div style="background-color:#f9fbe7; padding: 25px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
+        <p style="font-size:1.1em;">
+            A região <strong>{regiao_a if analise_regioes[regiao_a]['amplitude'] > analise_regioes[regiao_b]['amplitude'] else regiao_b}</strong> se destaca por apresentar a **maior variação sazonal** de temperatura. Isso significa que, ao longo do ano, essa região experimenta flutuações mais significativas entre as estações quentes e frias.
+        </p>
+        <p style="font-size:1.1em;">
+            Em termos de calor, a região <strong>{regiao_a if analise_regioes[regiao_a]['media'] > analise_regioes[regiao_b]['media'] else regiao_b}</strong> é, em média, consistentemente **mais quente**, evidenciando um clima predominante com temperaturas elevadas.
+        </p>
+        <p style="font-size:1.1em;">
+            Com <strong>{analise_regioes[regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b]['num_atipicos']}</strong> meses atípicos registrados, a região <strong>{regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b}</strong> demonstra uma **maior propensão a eventos climáticos fora do padrão**, como ondas de calor intensas ou frentes frias incomuns. Isso pode indicar uma maior variabilidade interanual ou a influência de fenômenos climáticos extremos.
+        </p>
+        <p style="font-size:1.1em;">
+            Os gráficos apresentados revelam padrões sazonais notavelmente distintos. Enquanto <strong>{regiao_a}</strong> {f"exibe uma **sazonalidade muito marcada**, com picos e vales de temperatura bem acentuados ao longo do ano" if analise_regioes[regiao_a]['amplitude'] > 5 else "mantém **temperaturas mais estáveis** e menos flutuantes ao longo das estações"}, <strong>{regiao_b}</strong> {f"apresenta **variações mais pronunciadas** entre as estações, indicando um regime térmico mais dinâmico" if analise_regioes[regiao_b]['amplitude'] > 5 else "mostra uma **pequena variação** entre os meses, sugerindo um clima mais homogêneo termicamente"}.
+        </p>
+        <p style="font-size:1.1em;">
+            A detecção desses meses atípicos é vital para compreender os **desvios do clima esperado** e pode estar diretamente ligada a **eventos climáticos extremos**, como secas prolongadas, chuvas torrenciais, ondas de calor sem precedentes ou frentes frias rigorosas, bem como mudanças nos padrões atmosféricos globais.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        ax_prec.set_title(f'☔ Volume Total de Precipitação Mensal na Região {regiao_selecionada}', fontsize=16, fontweight='bold')
-        ax_prec.set_xlabel('Mês', fontsize=12)
-        ax_prec.set_ylabel('Precipitação Total (mm)', fontsize=12)
-        ax_prec.set_xticks(range(1, 13))
-        ax_prec.set_xticklabels([nomes_meses.get(m, str(m)) for m in range(1, 13)])
-        ax_prec.grid(axis='y', linestyle=':', alpha=0.7)
-        ax_prec.legend(fontsize=10, loc='best')
-        plt.tight_layout()
-        st.pyplot(fig_prec)
+except FileNotFoundError:
+    st.error(f"❌ **Erro Crítico:** O arquivo de dados '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a existência do arquivo na pasta `medias`.")
+    st.info("💡 **Dica:** Certifique-se de que o arquivo `medias_mensais_geo_2020_2025.csv` está localizado corretamente na pasta `medias` dentro do seu projeto.")
+except KeyError as e:
+    st.error(f"❌ **Erro de Dados:** A coluna esperada '{e}' não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto e se o arquivo está no formato esperado.")
+    st.info("💡 **Dica:** O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês' e 'Temp_Media'.")
+except Exception as e:
+    st.error(f"💥 **Ops! Ocorreu um erro inesperado:** {e}")
+    st.warning("🔄 **Sugestão:** Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.")
 
-st.markdown("---")
-
-# --- ANÁLISE PROFUNDA E JUSTIFICATIVA ---
-st.header(f"🤔 2020 vs. 2024 na Região {regiao_selecionada}: Eventos Climáticos ou Variabilidade Natural? 🌍")
-st.markdown(f"""
-Ao confrontar os padrões climáticos de **2020** e **2024** para a **Região {regiao_selecionada}**,
-podemos extrair **insights cruciais** sobre a natureza do clima local. As diferenças visíveis nos gráficos
-acima podem ser mais do que meras flutuações anuais; elas podem sinalizar a influência de **eventos climáticos específicos** 🌀
-ou, alternativamente, a manifestação de uma **alta variabilidade intrínseca** à região.
-
----
-
-### 🌡️ Decifrando a Temperatura Média: O que os Gráficos Revelam?
-Observe as linhas que representam a temperatura média mensal. Quais histórias elas contam? 📖
-
-* **Tendência Anual:** Se a linha de **2024** 🧡 se mantém consistentemente acima (ou abaixo) da de **2020** 💜 por
-    vários meses, especialmente em estações-chave, isso pode indicar uma **tendência de aquecimento ou
-    resfriamento anual** mais acentuada. Isso pode ser um reflexo de tendências climáticas de longo prazo
-    ou a influência de fenômenos de grande escala, como fases intensas do El Niño/La Niña. 🌡️🔥
-* **Eventos Extremos de Calor/Frio:** Picos ou vales acentuados em meses específicos de um ano, sem uma
-    correspondência similar no outro, podem indicar a ocorrência de **ondas de calor escaldantes** 🥵 ou
-    **ondas de frio intenso** 🥶 pontuais. Estes são eventos climáticos de alto impacto que merecem atenção especial.
-
----
-
-### ☔ Desvendando a Precipitação Total: Água Demais ou de Menos?
-A comparação das barras de precipitação é igualmente reveladora para entender os regimes hídricos. 🌧️💧
-
-* **Secas ou Chuvas Intensas:** Um ano com volumes de precipitação drasticamente menores ou maiores que
-    o outro (especialmente durante a estação chuvosa característica da região) sugere a ocorrência de
-    **secas prolongadas** 🏜️ ou **períodos de chuvas torrenciais** deluge. Tais eventos são extremos e podem ter
-    consequências severas para a agricultura 🌾, recursos hídricos e cidades 🏘️.
-* **Mudança na Sazonalidade:** Se os picos de chuva ocorreram em meses diferentes, ou se a distribuição
-    das chuvas mudou significativamente (por exemplo, um ano com chuva mais concentrada em poucos meses,
-    outro mais dispersa ao longo do ano), isso aponta para uma **alteração nos padrões sazonais**.
-    Esta é uma indicação clara de alta variabilidade climática. 🔄
-
----
-
-### 🧐 Veredito Final: Eventos Climáticos Pontuais ou Dança da Variabilidade?
-O que os dados nos dizem sobre a **Região {regiao_selecionada}**? 🤔
-
-* **Impacto de Eventos Climáticos:** Se você observar diferenças **abruptas e marcantes** em um ou mais meses,
-    ou um padrão de temperaturas ou precipitações consistentemente mais altas/baixas em um ano em
-    comparação ao outro, isso **sugere fortemente a influência de um evento climático específico** naquele período.
-    Estes podem incluir fenômenos como El Niño/La Niña, bloqueios atmosféricos, ou a passagem de sistemas ciclônicos. 🌪️🌊
-* **Alta Variabilidade Natural:** Por outro lado, se as diferenças são **menos consistentes**, com um ano
-    sendo mais quente em alguns meses e mais frio em outros, ou com variações de precipitação que não
-    formam um padrão claro de seca/enchente generalizada, isso pode indicar uma **alta variabilidade
-    climática intrínseca à região**. Esta variabilidade exige **adaptabilidade contínua** por parte de
-    diversos setores, como o agrícola e de infraestrutura. 🏗️🌱
-
-Ao analisar cuidadosamente os gráficos e as informações acima, você pode inferir se a **Região {regiao_selecionada}**
-vivenciou anomalias climáticas pontuais em 2020 ou 2024, ou se a sua variabilidade natural foi particularmente acentuada nesses anos.
-Fique à vontade para explorar outras regiões! 🗺️
-""")
-
-# --- Rodapé ou Informações Adicionais (Opcional) ---
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; font-size: small; color: gray;'>
-    ✨ Dados baseados em informações meteorológicas históricas.
-    Desenvolvido com ❤️ para análise climática no Brasil.
+    🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟
 </div>
 """, unsafe_allow_html=True)
