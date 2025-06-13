@@ -3,220 +3,245 @@ import matplotlib.pyplot as plt
 import streamlit as st
 import os
 import numpy as np
-from matplotlib.cm import get_cmap
 
 # --- CONFIGURAÇÕES INICIAIS ---
-st.set_page_config(
-    page_title="Análise Climática Regional do Brasil",
-    page_icon="🌍",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(layout="wide", page_title="Análise Climática Interativa por Região ☀️")
 
-st.title("🌎 Análise Climática Regional do Brasil (2020-2025)")
-st.markdown("Bem-vindo à ferramenta de análise climática. Explore as tendências de temperatura, precipitação e radiação solar em diferentes regiões do Brasil entre 2020 e 2025.")
+# CSS para estilização aprimorada do título
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Caminho relativo ao arquivo CSV
-# Ajuste conforme a estrutura do seu projeto.
-# Recomenda-se criar uma pasta 'data' na raiz do projeto e colocar o CSV lá.
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
 # --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
 def carregar_dados(caminho):
     """
-    Carrega e processa o arquivo de dados climáticos.
-    Tenta calcular 'Temp_Media' se não existir, e converte tipos.
+    Carrega os dados do arquivo CSV, realiza cálculos iniciais e o retorna.
+    O uso de @st.cache_data acelera o app, evitando recarregar o arquivo a cada interação.
     """
-    try:
-        df = pd.read_csv(caminho)
-    except FileNotFoundError:
-        st.error(f"Erro: O arquivo '{caminho}' não foi encontrado. Por favor, certifique-se de que o arquivo está no diretório correto.")
-        st.stop()
-    except Exception as e:
-        st.error(f"Erro ao carregar o arquivo CSV: {e}")
-        st.stop()
-
-    # Calcula a Temp_Media se as colunas de max/min existirem e 'Temp_Media' não
-    if 'Temp_Media' not in df.columns:
-        if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
-           'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
-            df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-                                df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
-        else:
-            st.error("Erro: A coluna 'Temp_Media' não existe e não pôde ser calculada. Verifique o seu arquivo CSV.")
-            st.stop()
-
-    # Converte colunas essenciais para numérico, tratando erros
-    for col in ['Mês', 'Ano']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        else:
-            st.error(f"Erro: A coluna '{col}' não foi encontrada no arquivo CSV. Ela é essencial para a análise.")
-            st.stop()
-
-    df = df.dropna(subset=['Mês', 'Ano', 'Temp_Media']) # Garante que essas colunas não têm NaNs
+    df = pd.read_csv(caminho)
+    # Calcula a média da temperatura se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temperatura Média (°C)'] = (
+            df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
+            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
+        ) / 2
+    # Garante que as colunas importantes são numéricas
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano', 'Regiao'])
     return df
 
-# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
+    # Carregar os dados
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # --- INTERFACE DO USUÁRIO ---
-    st.sidebar.header("⚙️ Selecione os Filtros")
-    st.sidebar.markdown("Use os controles abaixo para personalizar sua visualização dos dados climáticos.")
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Análise Climática Interativa por Região 🌎☀️📊</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Explorando Padrões Climáticos no Brasil (2020-2025) 🇧🇷</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # --- EXPLICAÇÃO INICIAL DO APP ---
+    st.markdown("""
+    Este aplicativo Streamlit permite uma exploração detalhada de variáveis climáticas
+    como **Temperatura Média**, **Radiação Global** e **Precipitação Total**
+    para as regiões do Brasil entre 2020 e 2025.
+    """)
 
-    # Obter opções únicas para os filtros
-    regioes = sorted(df_unificado['Regiao'].unique())
-    anos = sorted(df_unificado['Ano'].unique())
-    meses = sorted(df_unificado['Mês'].unique())
+    # --- Filtros interativos na barra lateral ---
+    st.sidebar.header("⚙️ Ajuste sua Análise Aqui:")
 
-    # Dropdown para seleção de região
-    regiao_selecionada = st.sidebar.selectbox(
-        "📍 **Escolha a Região:**",
-        regioes,
-        help="Selecione uma das regiões brasileiras para analisar seus dados climáticos."
+    # Listas para os filtros
+    regioes_disponiveis = sorted(df_unificado['Regiao'].unique())
+    anos_disponiveis = sorted(df_unificado['Ano'].unique().astype(int))
+
+    # Filtro de Regiões
+    regioes_selecionadas = st.sidebar.multiselect(
+        "📍 Selecione as Regiões de Interesse:",
+        options=regioes_disponiveis,
+        default=regioes_disponiveis[:2]  # Seleciona as duas primeiras regiões por padrão
     )
 
-    # Mapeamento de variáveis com nomes amigáveis e suas colunas reais
+    # Filtro de Anos
+    anos_selecionados = st.sidebar.multiselect(
+        "📅 Escolha os Anos para Comparar:",
+        options=anos_disponiveis,
+        default=anos_disponiveis # Todos os anos selecionados por padrão
+    )
+    
+    # Filtro de Variável
     variaveis = {
-        'Temperatura Média (°C)': 'Temp_Media',
+        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)',
+        'Temperatura Média (°C)': 'Temperatura Média (°C)',
         'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
-        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
     }
     nome_var = st.sidebar.selectbox(
-        "📊 **Selecione a Variável:**",
-        list(variaveis.keys()),
-        help="Escolha entre Temperatura Média, Precipitação Total ou Radiação Global para visualizar."
+        "📊 Qual Variável Climática Deseja Visualizar?",
+        options=list(variaveis.keys())
     )
     coluna_var = variaveis[nome_var]
 
-    # Verifica se a coluna da variável selecionada existe no DataFrame
+    # Validação para evitar erros se nenhuma região ou ano for selecionado
+    if not regioes_selecionadas or not anos_selecionados:
+        st.warning("⚠️ **Ops!** Parece que você esqueceu de selecionar uma região ou um ano. Por favor, escolha pelo menos um de cada para iniciarmos a análise. ⏳")
+        st.stop()
+    
+    # Validação da existência da coluna da variável
     if coluna_var not in df_unificado.columns:
-        st.error(f"A coluna '{coluna_var}' para '{nome_var}' não foi encontrada no arquivo CSV. Por favor, verifique o nome da coluna no seu arquivo.")
+        st.error(f"❌ **Erro:** A coluna '{coluna_var}' para a variável '{nome_var}' não foi encontrada nos dados. Por favor, verifique o arquivo CSV. 😬")
         st.stop()
 
-    unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
+    # Filtra o DataFrame principal com base nas seleções do usuário
+    df_filtrado = df_unificado[
+        df_unificado['Regiao'].isin(regioes_selecionadas) &
+        df_unificado['Ano'].isin(anos_selecionados)
+    ]
 
-    # --- VISUALIZAÇÃO PRINCIPAL (Sazonalidade Anual) ---
+    # --- Gráfico Principal ---
     st.markdown("---")
-    st.header(f"📈 Sazonalidade Climática: {nome_var} na Região {regiao_selecionada}")
-    st.markdown(f"Este gráfico compara a variação mensal de **{nome_var}** para cada ano disponível na região **{regiao_selecionada}**, destacando a média histórica.")
+    st.header(f"📈 Tendência Mensal de {nome_var} por Região e Ano")
+    st.markdown(f"Explore como a **{nome_var.lower()}** se comporta ao longo dos meses para as regiões e anos selecionados. Cada linha representa um ano, permitindo uma comparação clara das tendências sazonais.")
 
-    df_regiao = df_unificado[df_unificado['Regiao'] == regiao_selecionada].copy() # Usar .copy() para evitar SettingWithCopyWarning
+    # --- Cor do gráfico modificada para 'plasma' ---
+    cmap = plt.get_cmap('viridis') # 'viridis' é uma boa alternativa para 'plasma' e mais acessível
+    cores_anos = {ano: cmap(i / len(anos_selecionados)) for i, ano in enumerate(anos_selecionados)}
 
-    # Cores para os anos com um mapa de cores mais vibrante
-    cmap = get_cmap('viridis') # 'viridis', 'plasma', 'cividis', 'magma' são boas opções
-    cores_anos = {ano: cmap(i / (len(anos) - 1 if len(anos) > 1 else 1)) for i, ano in enumerate(anos)}
+    # Criação do grid de gráficos dinamicamente
+    n_cols = 2 if len(regioes_selecionadas) > 1 else 1 # Ajusta o número de colunas
+    if len(regioes_selecionadas) > 4: # Para muitas regiões, use 3 colunas
+        n_cols = 3
+    
+    n_rows = int(np.ceil(len(regioes_selecionadas) / n_cols))
+    
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(7 * n_cols, 5 * n_rows), sharey=True, squeeze=False)
+    axes = axes.flatten()
 
-    fig_sazonal, ax_sazonal = plt.subplots(figsize=(14, 7))
+    for i, regiao in enumerate(regioes_selecionadas):
+        ax = axes[i]
+        df_regiao_filtrada = df_filtrado[df_filtrado['Regiao'] == regiao]
+        for ano in anos_selecionados:
+            df_ano_regiao = df_regiao_filtrada[df_regiao_filtrada['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
+            if not df_ano_regiao.empty:
+                ax.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-', color=cores_anos[ano], label=str(ano), linewidth=2, markersize=6)
+        ax.set_title(f"Região: {regiao}", fontsize=14, fontweight='bold')
+        ax.set_xlabel('Mês do Ano')
+        if i % n_cols == 0:
+            ax.set_ylabel(nome_var, fontsize=12)
+        ax.set_xticks(range(1, 13))
+        ax.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
+        ax.grid(True, linestyle='--', alpha=0.7)
+        ax.tick_params(axis='both', which='major', labelsize=10)
 
-    valores_anuais_por_mes = {}
-    for ano in anos:
-        df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
-        if not df_ano_regiao.empty:
-            ax_sazonal.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-',
-                            color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=1.5, alpha=0.8)
-        valores_anuais_por_mes[ano] = df_ano_regiao.values
+    # Remove eixos vazios
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
 
-    df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
-    media_historica_mensal = df_valores_anuais.mean(axis=1)
-
-    ax_sazonal.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='black',
-                    label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=3, alpha=0.9)
-
-    ax_sazonal.set_title(f'Variação Mensal de {nome_var} por Ano - Região {regiao_selecionada}', fontsize=18, pad=20)
-    ax_sazonal.set_xlabel('Mês', fontsize=14, labelpad=15)
-    ax_sazonal.set_ylabel(f'{nome_var}', fontsize=14, labelpad=15)
-    ax_sazonal.set_xticks(range(1, 13))
-    ax_sazonal.set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'])
-    ax_sazonal.grid(True, linestyle='--', alpha=0.7)
-    ax_sazonal.legend(title='Ano', bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0.)
-    plt.tight_layout()
-    st.pyplot(fig_sazonal)
-
+    # Criação da legenda unificada
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.0, 1.0), ncol=1, fancybox=True, shadow=True)
+    plt.tight_layout(rect=[0, 0, 0.9, 1]) # Ajusta o layout para a legenda
+    st.pyplot(fig)
     st.markdown("---")
 
-    # --- NOVA SEÇÃO: FORMULAÇÃO DE HIPÓTESES ---
-    st.header("🤔 Formulando Hipóteses sobre o Clima Futuro")
-    st.info("🚨 **Importante:** As análises a seguir são baseadas em dados de **curto prazo (2020-2025)**. As 'tendências' e 'hipóteses' são exercícios exploratórios e **não devem ser consideradas previsões climáticas definitivas**. Previsões confiáveis exigem séries históricas de dados de décadas e modelos climáticos complexos.")
+    # --- Seções de Análise (só aparecem se a variável for Radiação Global) ---
+    if nome_var == 'Radiação Global (Kj/m²)':
+        st.header("insights sobre Radiação Global ☀️")
+        st.markdown("A radiação solar é uma métrica crucial! Vamos entender seus picos e vales, e como ela se distribui ao longo das estações.")
 
-    col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-    with col1:
-        # --- HIPÓTESE 1: ANÁLISE DE TENDÊNCIA ---
-        st.subheader("1. Análise de Tendência Anual")
-        st.markdown("Investiga se há um padrão de **aumento, diminuição ou estabilidade** na média anual da variável selecionada ao longo dos anos.")
+        with col1:
+            # Análise de Extremos
+            st.subheader("Extremos de Radiação Detectados 🚀")
+            if not df_filtrado[coluna_var].empty:
+                idx_max = df_filtrado[coluna_var].idxmax()
+                max_rad_data = df_filtrado.loc[idx_max]
 
-        # Calcula a média anual da variável para a região
-        media_anual = df_valores_anuais.mean(axis=0).dropna()
+                idx_min = df_filtrado[coluna_var].idxmin()
+                min_rad_data = df_filtrado.loc[idx_min]
+                
+                st.markdown(f"**Maior Radiação Registrada:**\n"
+                                f"**{max_rad_data[coluna_var]:.2f} Kj/m²** 🤯\n"
+                                f"📍 Região: **{max_rad_data['Regiao']}**\n"
+                                f"🗓️ Mês: **{int(max_rad_data['Mês'])}**\n"
+                                f"🗓️ Ano: **{int(max_rad_data['Ano'])}**")
 
-        if len(media_anual) > 1:
-            anos_validos = media_anual.index.astype(int)
-            valores_validos = media_anual.values
-
-            # Calcula a linha de tendência usando regressão linear
-            slope, intercept = np.polyfit(anos_validos, valores_validos, 1)
-            trend_line = slope * anos_validos + intercept
-
-            # Gráfico de Tendência
-            fig_trend, ax_trend = plt.subplots(figsize=(7, 5))
-            ax_trend.plot(anos_validos, valores_validos, marker='o', linestyle='-', label='Média Anual Observada', color='steelblue', markersize=7)
-            ax_trend.plot(anos_validos, trend_line, linestyle='--', color='red', label=f'Linha de Tendência (Declive: {slope:.3f})', linewidth=2)
-            ax_trend.set_title(f'Tendência Anual de {nome_var} na Região {regiao_selecionada}', fontsize=14, pad=10)
-            ax_trend.set_xlabel('Ano', fontsize=12)
-            ax_trend.set_ylabel(f'Média Anual ({unidade_var})', fontsize=12)
-            ax_trend.grid(True, linestyle='--', alpha=0.6)
-            ax_trend.legend()
-            plt.tight_layout()
-            st.pyplot(fig_trend)
-
-            # Interpretação da tendência
-            tendencia_texto = ""
-            if slope > 0.05: # Limiar para considerar uma tendência de aumento significativa
-                tendencia_texto = f"**Conclusão: Tendência de Aumento** 📈\n\nOs dados sugerem uma tendência de **aumento** para a **{nome_var.lower()}** na região {regiao_selecionada}. Com uma taxa de variação de `{slope:.3f} {unidade_var} por ano`, a hipótese exploratória é que a região pode estar enfrentando **condições progressivamente mais quentes, chuvosas ou com maior radiação** se essa tendência de curto prazo persistir."
-                st.success(tendencia_texto)
-            elif slope < -0.05: # Limiar para considerar uma tendência de queda significativa
-                tendencia_texto = f"**Conclusão: Tendência de Diminuição** 📉\n\nOs dados sugerem uma tendência de **diminuição** para a **{nome_var.lower()}** na região {regiao_selecionada}. Com uma taxa de variação de `{slope:.3f} {unidade_var} por ano`, a hipótese exploratória é que a região pode estar se tornando **mais fria, seca ou com menos radiação** se essa tendência de curto prazo continuar."
-                st.warning(tendencia_texto)
+                st.markdown(f"**Menor Radiação Registrada:**\n"
+                                f"**{min_rad_data[coluna_var]:.2f} Kj/m²** 🥶\n"
+                                f"📍 Região: **{min_rad_data['Regiao']}**\n"
+                                f"🗓️ Mês: **{int(min_rad_data['Mês'])}**\n"
+                                f"🗓️ Ano: **{int(min_rad_data['Ano'])}**")
             else:
-                tendencia_texto = f"**Conclusão: Tendência de Estabilidade Relativa** ↔️\n\nA linha de tendência é quase plana (`{slope:.3f} {unidade_var} por ano`), sugerindo uma **relativa estabilidade** na média anual de **{nome_var.lower()}** na região {regiao_selecionada} durante este período. A hipótese principal seria a manutenção das condições médias atuais, mas é crucial observar a variabilidade entre os anos."
-                st.info(tendencia_texto)
+                st.info("Não há dados suficientes para analisar os extremos de radiação para a sua seleção. 😔")
 
-        else:
-            st.info("Dados insuficientes (menos de 2 anos) para calcular uma tendência linear.")
+        with col2:
+            # Análise Sazonal
+            st.subheader("Média por Estação (Verão vs. Inverno) 🌡️")
+            meses_verao = [12, 1, 2] # Considerando o verão no hemisfério sul
+            meses_inverno = [6, 7, 8] # Considerando o inverno no hemisfério sul
+            
+            dados_sazonais = []
+            for regiao in regioes_selecionadas:
+                df_regiao_sazonal = df_filtrado[df_filtrado['Regiao'] == regiao]
+                media_verao = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_verao)][coluna_var].mean()
+                media_inverno = df_regiao_sazonal[df_regiao_sazonal['Mês'].isin(meses_inverno)][coluna_var].mean()
+                dados_sazonais.append({
+                    'Região': regiao,
+                    'Média Verão (Kj/m²)': media_verao,
+                    'Média Inverno (Kj/m²)': media_inverno
+                })
+            
+            df_sazonais = pd.DataFrame(dados_sazonais)
+            if not df_sazonais.empty:
+                st.dataframe(df_sazonais.round(2).style.highlight_max(subset=['Média Verão (Kj/m²)', 'Média Inverno (Kj/m²)'], axis=1, color='lightgreen').highlight_min(subset=['Média Verão (Kj/m²)', 'Média Inverno (Kj/m²)'], axis=1, color='salmon'))
+            else:
+                st.info("Não foi possível calcular as médias sazonais com os dados selecionados. 🙁")
 
-    with col2:
-        # --- HIPÓTESE 2: ANÁLISE DE VARIABILIDADE E EXTREMOS ---
-        st.subheader("2. Análise de Variabilidade Anual")
-        st.markdown("Avalia o quão distante cada ano esteve da média histórica, indicando a **ocorrência de anos mais atípicos ou extremos**.")
+        st.markdown("---")
+        st.subheader("Por que a Radiação Solar Importa? 💡")
+        st.markdown("""
+        A **radiação solar** é muito mais do que apenas luz do sol! Ela é um motor para diversos aspectos:
 
-        # Calcula o desvio absoluto médio de cada ano em relação à média histórica mensal
-        desvios_abs_anuais = (df_valores_anuais.subtract(media_historica_mensal, axis=0)).abs().mean()
-        desvios_abs_anuais = desvios_abs_anuais.dropna()
+        * **Energia Solar Sustentável:** Regiões com alta radiação são ideais para a instalação de painéis fotovoltaicos, convertendo a luz do sol em eletricidade limpa e renovável. 🌞 Potencial máximo!
+        * **Agricultura e Produção de Alimentos:** Essencial para a **fotossíntese**, a radiação solar impulsiona o crescimento das plantas. Conhecer seus níveis ajuda a otimizar o plantio e a irrigação, evitando estresse nas culturas. 🌾
+        * **Impacto no Clima e Meio Ambiente:** A radiação influencia diretamente a **temperatura** (calor), a **evaporação** de rios e reservatórios e até a formação de **ilhas de calor** em áreas urbanas. É um fator chave para entender as mudanças climáticas. 🌡️💧
+        """)
 
-        if not desvios_abs_anuais.empty:
-            ano_mais_atipico = desvios_abs_anuais.idxmax()
-            maior_desvio = desvios_abs_anuais.max()
-
-            st.markdown(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
-            st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo) neste período, com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica geral.")
-
-            st.markdown(f"**Hipótese de Variabilidade:** Se os anos mais recentes (por exemplo, {int(max(anos))-1} ou {int(max(anos))}) aparecem consistentemente com os maiores desvios, isso pode sugerir uma hipótese de que **o clima na região está se tornando mais variável e propenso a extremos** (tanto para cima quanto para baixo da média). Anos que se desviam significativamente da média podem se tornar mais frequentes.")
-
-            st.write("---")
-            st.markdown("**Ranking de Anos por Desvio (Indicador de Atipicidade):**")
-            desvios_df = pd.DataFrame(desvios_abs_anuais, columns=['Desvio Médio Absoluto'])
-            st.dataframe(desvios_df.sort_values(by='Desvio Médio Absoluto', ascending=False).style.format("{:.2f}"))
-        else:
-            st.info("Não há dados suficientes para realizar a análise de variabilidade anual.")
-
-    st.markdown("---")
-    st.markdown("""
-        **Agradecemos por utilizar nossa ferramenta de análise climática!**
-        Desenvolvido com ❤️ e dados abertos.
-    """)
-
-# --- TRATAMENTO GERAL DE ERROS ---
+except FileNotFoundError:
+    st.error(f"❌ **Erro:** O arquivo de dados climáticos '{caminho_arquivo_unificado}' não foi encontrado. Por favor, certifique-se de que ele está na pasta 'medias' dentro do diretório do seu aplicativo. 🧐")
 except Exception as e:
-    st.error(f"Ocorreu um erro inesperado. Por favor, tente novamente ou contate o suporte. Detalhes: {e}")
+    st.error(f"💥 **Ocorreu um erro inesperado:** Parece que algo deu errado ao processar os dados. Por favor, tente novamente ou entre em contato com o suporte se o problema persistir. Detalhes do erro: `{e}`")
+
+st.markdown("---")
+st.markdown("Feito com ❤️ e dados climáticos para você explorar! Gostaria de analisar alguma outra variável ou período? ✨")
