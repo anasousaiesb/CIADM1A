@@ -4,13 +4,44 @@ import streamlit as st
 import os
 import numpy as np
 
-# --- Título principal mais descritivo e com emojis ---
-st.set_page_config(layout="wide", page_title="Análise Climática Interativa por Região")
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide", page_title="Análise Climática Interativa por Região ☀️")
 
-st.title("🌎 Análise Climática Interativa por Região (2020-2025) ☀️")
-st.markdown("Bem-vindo(a) ao seu painel interativo para explorar dados climáticos do Brasil! Use os filtros na barra lateral para mergulhar nas tendências de temperatura, radiação e precipitação em diferentes regiões e anos.")
+# CSS para estilização aprimorada do título
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
-# --- Função para carregar e cachear os dados ---
+# Caminho relativo ao arquivo CSV
+caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
 @st.cache_data
 def carregar_dados(caminho):
     """
@@ -32,9 +63,21 @@ def carregar_dados(caminho):
     return df
 
 try:
-    # Caminho relativo ao arquivo CSV
-    caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
+    # Carregar os dados
     df_unificado = carregar_dados(caminho_arquivo_unificado)
+
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS (APLICANDO O DESIGN DO PRIMEIRO CÓDIGO) ---
+    st.markdown('<div class="header-section">', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-title">Análise Climática Interativa por Região 🌎☀️📊</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Explorando Padrões Climáticos no Brasil (2020-2025) 🇧🇷</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # --- EXPLICAÇÃO INICIAL DO APP ---
+    st.markdown("""
+    Este aplicativo Streamlit permite uma exploração detalhada de variáveis climáticas
+    como **Temperatura Média**, **Radiação Global** e **Precipitação Total**
+    para as regiões do Brasil entre 2020 e 2025.
+    """)
 
     # --- Filtros interativos na barra lateral ---
     st.sidebar.header("⚙️ Ajuste sua Análise Aqui:")
@@ -86,6 +129,7 @@ try:
     ]
 
     # --- Gráfico Principal ---
+    st.markdown("---")
     st.header(f"📈 Tendência Mensal de {nome_var} por Região e Ano")
     st.markdown(f"Explore como a **{nome_var.lower()}** se comporta ao longo dos meses para as regiões e anos selecionados. Cada linha representa um ano, permitindo uma comparação clara das tendências sazonais.")
 
@@ -148,16 +192,16 @@ try:
                 min_rad_data = df_filtrado.loc[idx_min]
                 
                 st.markdown(f"**Maior Radiação Registrada:**\n"
-                            f"**{max_rad_data[coluna_var]:.2f} Kj/m²** 🤯\n"
-                            f"📍 Região: **{max_rad_data['Regiao']}**\n"
-                            f"🗓️ Mês: **{int(max_rad_data['Mês'])}**\n"
-                            f"🗓️ Ano: **{int(max_rad_data['Ano'])}**")
+                                f"**{max_rad_data[coluna_var]:.2f} Kj/m²** 🤯\n"
+                                f"📍 Região: **{max_rad_data['Regiao']}**\n"
+                                f"🗓️ Mês: **{int(max_rad_data['Mês'])}**\n"
+                                f"🗓️ Ano: **{int(max_rad_data['Ano'])}**")
 
                 st.markdown(f"**Menor Radiação Registrada:**\n"
-                            f"**{min_rad_data[coluna_var]:.2f} Kj/m²** 🥶\n"
-                            f"📍 Região: **{min_rad_data['Regiao']}**\n"
-                            f"🗓️ Mês: **{int(min_rad_data['Mês'])}**\n"
-                            f"🗓️ Ano: **{int(min_rad_data['Ano'])}**")
+                                f"**{min_rad_data[coluna_var]:.2f} Kj/m²** 🥶\n"
+                                f"📍 Região: **{min_rad_data['Regiao']}**\n"
+                                f"🗓️ Mês: **{int(min_rad_data['Mês'])}**\n"
+                                f"🗓️ Ano: **{int(min_rad_data['Ano'])}**")
             else:
                 st.info("Não há dados suficientes para analisar os extremos de radiação para a sua seleção. 😔")
 
