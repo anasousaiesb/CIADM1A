@@ -5,21 +5,43 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- Configurações Iniciais e Estilo da Página ---
+# --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(
     layout="wide",
-    page_title="Análise Climática Brasil: 2020 vs. 2024",
-    page_icon="🇧🇷" # Changed to Brazil flag
+    page_title="Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024", # Updated page title
+    page_icon="🇧🇷" 
 )
 
-# Título Principal da Aplicação Centralizado
-st.markdown("<h1 style='text-align: center;'>🌍 Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️</h1>", unsafe_allow_html=True)
-
+# CSS para estilização aprimorada do título (from previous design)
 st.markdown("""
-Prepare-se para uma **imersão visual fascinante** nos dados climáticos brasileiros! 🚀 Descubra as
-dinâmicas de **temperatura** e **precipitação** entre os anos de **2020** e **2024**, e explore
-como o nosso clima 🇧🇷 variou em diferentes regiões do país. Vamos nessa?
-""")
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
@@ -77,6 +99,14 @@ def carregar_dados(caminho: str) -> pd.DataFrame:
 # --- Carregamento dos Dados e Tratamento de Erros Iniciais ---
 df_unificado = carregar_dados(caminho_arquivo_unificado)
 
+# --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
+st.markdown('<div class="header-section">', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️</h1>', unsafe_allow_html=True) # Updated title
+st.markdown("""<p class="subtitle">Prepare-se para uma **imersão visual fascinante** nos dados climáticos brasileiros! 🚀 Descubra as
+dinâmicas de **temperatura** e **precipitação** entre os anos de **2020** e **2024**, e explore
+como o nosso clima 🇧🇷 variou em diferentes regiões do país. Vamos nessa?</p>""", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --- Interface do Usuário na Barra Lateral ---
 st.sidebar.header("⚙️ Opções de Análise Climática")
 
@@ -120,7 +150,7 @@ df_2020_comp = df_2020.dropna()
 df_2024_comp = df_2024.dropna()
 
 if df_2020_comp.empty or df_2024_comp.empty:
-    st.warning(f"⚠️ Dados insuficientes para 2020 ou 2024 na Região {regiao_selecionada}. Não foi possível realizar a comparação completa dos gráficos. 😔")
+    st.warning(f"⚠️ Dados insuficientes para 2024 na Região {regiao_selecionada}. Não foi possível realizar a comparação completa dos gráficos. 😔")
 else:
     # Mapeamento de números de mês para nomes abreviados
     nomes_meses = {
