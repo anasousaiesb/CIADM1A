@@ -66,7 +66,7 @@ try:
     # Carregar os dados
     df_unificado = carregar_dados(caminho_arquivo_unificado)
 
-    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS ---
+    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM EMOJIS (APLICANDO O DESIGN DO PRIMEIRO CÓDIGO) ---
     st.markdown('<div class="header-section">', unsafe_allow_html=True)
     st.markdown('<h1 class="main-title">Análise Climática Interativa por Região 🌎☀️📊</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">Explorando Padrões Climáticos no Brasil (2020-2025) 🇧🇷</p>', unsafe_allow_html=True)
