@@ -8,7 +8,7 @@ from matplotlib.cm import get_cmap
 # --- Configurações Iniciais e Estilo da Página ---
 st.set_page_config(
     layout="wide",
-    page_title="Análise Climática Brasil: 2020 vs. 2024 ☀️", # Updated title for clarity
+    page_title="Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024!🌧️ ☀️", # Updated title for clarity
     page_icon="🇧🇷" 
 )
 
