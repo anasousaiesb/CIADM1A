@@ -5,10 +5,10 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- Configurações Iniciais e Estilo da Página ---
+# --- CONFIGURAÇÕES INICIAIS ---
 st.set_page_config(
     layout="wide",
-    page_title="Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024!🌧️ ☀️", # Updated title for clarity
+    page_title="Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024", # Updated page title
     page_icon="🇧🇷" 
 )
 
@@ -101,7 +101,7 @@ df_unificado = carregar_dados(caminho_arquivo_unificado)
 
 # --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
 st.markdown('<div class="header-section">', unsafe_allow_html=True)
-st.markdown('<h1 class="main-title">Análise Climática Brasil: 2020 vs. 2024 🌍🌧️☀️</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">Temperaturas e Chuvas no Brasil: Uma Jornada Climática entre 2020 e 2024! 🌧️☀️</h1>', unsafe_allow_html=True) # Updated title
 st.markdown("""<p class="subtitle">Prepare-se para uma **imersão visual fascinante** nos dados climáticos brasileiros! 🚀 Descubra as
 dinâmicas de **temperatura** e **precipitação** entre os anos de **2020** e **2024**, e explore
 como o nosso clima 🇧🇷 variou em diferentes regiões do país. Vamos nessa?</p>""", unsafe_allow_html=True)
