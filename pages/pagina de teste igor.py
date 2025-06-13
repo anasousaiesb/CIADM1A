@@ -106,9 +106,9 @@ try:
     st.subheader(f"📈 Gráficos de Temperatura Média Mensal: **{regiao_a}** vs. **{regiao_b}**")
     st.markdown("Acompanhe a trajetória da temperatura mês a mês, ano a ano.")
     
-    # Adjusted figsize for less flattened plots
+    # Adjusted figsize for less flattened plots and changed style
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8), sharey=True) # Increased height
-    plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade para melhor leitura
+    plt.style.use('ggplot') # Changed style to ggplot
 
     analise_regioes = {regiao_a: {}, regiao_b: {}}
     meses_atipicos_geral = pd.DataFrame()
@@ -259,3 +259,4 @@ st.markdown("""
     🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟
 </div>
 """, unsafe_allow_html=True)
+
