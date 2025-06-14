@@ -5,257 +5,377 @@ import os
 import numpy as np
 from matplotlib.cm import get_cmap
 
-# --- Configurações da Página ---
+# --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(
     layout="wide",
-    page_title="Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌡️", # Updated page title
-    page_icon="🇧🇷" 
+    page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷",
+    initial_sidebar_state="expanded"
 )
 
-# --- CSS para estilização aprimorada do título (Aplicado do design anterior) ---
+# --- CUSTOM CSS (NOVO: Mais abrangente para um visual moderno) ---
 st.markdown("""
 <style>
-.stApp {
-    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
-}
-.main-title {
-    font-size: 3.5em;
-    font-weight: 700;
-    color: #2E8B57; /* Um verde mais escuro e atraente */
-    text-align: center;
-    margin-bottom: 0.5em;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-}
-.subtitle {
-    font-size: 1.8em;
-    color: #3CB371; /* Um verde um pouco mais claro */
-    text-align: center;
-    margin-top: -0.5em;
-    margin-bottom: 1.5em;
-}
-.header-section {
-    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
-    padding: 1.5em;
-    border-radius: 10px;
-    margin-bottom: 2em;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-}
+    /* Cores personalizadas */
+    :root {
+        --primary-color: #4CAF50; /* Verde vibrante */
+        --secondary-color: #2196F3; /* Azul dinâmico */
+        --text-color: #333333;
+        --background-color: #f0f2f6; /* Cinza claro suave */
+        --card-background: #ffffff;
+        --border-color: #e0e0e0;
+    }
+
+    body {
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text-color);
+        background-color: var(--background-color);
+    }
+
+    .stApp {
+        background-color: var(--background-color);
+    }
+
+    /* Títulos principais */
+    h1 {
+        color: #1a237e; /* Azul escuro profundo */
+        text-align: center;
+        font-size: 3.2em;
+        margin-bottom: 0.5em;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+        color: var(--primary-color);
+        font-size: 2.2em;
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 0.3em;
+        margin-top: 1.5em;
+        margin-bottom: 1em;
+    }
+
+    h3 {
+        color: var(--secondary-color);
+        font-size: 1.8em;
+        margin-top: 1.2em;
+        margin-bottom: 0.8em;
+    }
+
+    /* Estilo para a introdução */
+    .big-font {
+        font-size: 24px !important;
+        font-weight: 600;
+        color: #2e7d32; /* Verde escuro */
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .medium-font {
+        font-size: 18px !important;
+        color: #1976d2; /* Azul médio */
+        text-align: center;
+        margin-bottom: 25px;
+    }
+
+    /* Cartões de insights */
+    .stMarkdown div[data-testid="stMarkdownContainer"] div {
+        background-color: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: transform 0.2s ease-in-out;
+    }
+    .stMarkdown div[data-testid="stMarkdownContainer"] div:hover {
+        transform: translateY(-5px);
+    }
+
+    /* Melhorar legibilidade de listas */
+    ul {
+        margin-left: 20px;
+        line-height: 1.7;
+    }
+    li {
+        margin-bottom: 8px;
+    }
+
+    /* Botões e seletores na sidebar */
+    .stSidebar .stSelectbox, .stSidebar .stMultiSelect {
+        padding: 10px;
+        border-radius: 8px;
+        background-color: var(--card-background);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .stSidebar label {
+        font-weight: bold;
+        color: #3f51b5; /* Índigo */
+        font-size: 1.1em;
+        margin-bottom: 10px;
+    }
+
+    /* Gráficos */
+    .matplotlib {
+        border-radius: 12px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        overflow: hidden; /* Garante que a sombra não seja cortada */
+    }
+
+    /* Aviso e Erro */
+    .stAlert {
+        border-radius: 8px;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Caminho Relativo do Arquivo CSV ---
+# --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
+st.title("🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊")
+st.markdown("""
+<p class="big-font">Explore os padrões climáticos regionais e identifique tendências e anomalias nas temperaturas, precipitações e radiação solar.</p>
+<p class="medium-font">Utilize os filtros na barra lateral para personalizar sua análise e mergulhar nos dados climáticos mais recentes do Brasil.</p>
+""", unsafe_allow_html=True)
+
+st.markdown("---") # Separador visual
+
+# Caminho relativo ao arquivo CSV
 caminho_arquivo_unificado = os.path.join("medias", "medias_mensais_geo_2020_2025.csv")
 
-# --- Dicionário para Mapear Abrevições das Regiões ---
-mapa_regioes = {
-    "CO": "Centro-Oeste",
-    "NE": "Nordeste",
-    "N": "Norte",
-    "S": "Sul",
-    "SE": "Sudeste"
-}
-
-# --- Carregamento e Preparação dos Dados ---
-@st.cache_data # Cache os dados para evitar recarregamento em cada interação
+# --- FUNÇÃO PARA CARREGAR E PREPARAR OS DADOS ---
+@st.cache_data
 def carregar_dados(caminho):
+    """Carrega e processa o arquivo de dados climáticos."""
     df = pd.read_csv(caminho)
+
+    # Mapeamento de abreviações de regiões para nomes completos
+    mapa_regioes = {
+        "CO": "Centro-Oeste",
+        "NE": "Nordeste",
+        "N": "Norte",
+        "S": "Sul",
+        "SE": "Sudeste"
+    }
     df['Regiao'] = df['Regiao'].map(mapa_regioes)
+    
+    # Calcular a Temperatura Média se as colunas de max/min existirem
+    if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
+       'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
+        df['Temperatura Média (°C)'] = (
+            df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
+            df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']
+        ) / 2
+    elif 'Temperatura Média (°C)' not in df.columns:
+        raise KeyError("Coluna 'Temperatura Média (°C)' não encontrada e não pôde ser calculada.")
+
+    # Certificar-se de que as colunas 'Mês' e 'Ano' são numéricas
+    df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
+    df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
+    df = df.dropna(subset=['Mês', 'Ano'])
     return df
 
+# --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
 try:
     df_unificado = carregar_dados(caminho_arquivo_unificado)
-
-    # --- TÍTULO PRINCIPAL E SUBTÍTULO COM O NOVO DESIGN ---
-    st.markdown('<div class="header-section">', unsafe_allow_html=True)
-    st.markdown('<h1 class="main-title">Padrões Sazonais de Temperatura (2020-2025) no Brasil 🌎🌡️📊</h1>', unsafe_allow_html=True) # New Title
-    st.markdown("""
-    <p class="subtitle">
-        Explore e compare as **tendências de temperatura média** em diferentes regiões do país.
-        Este aplicativo interativo permite identificar meses e anos com **comportamentos climáticos atípicos**,
-        oferecendo uma visão clara das variações sazonais ao longo do período de 2020 a 2025.
-    </p>
-    """, unsafe_allow_html=True) # New Subtitle
-    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("---") # Separator after the header
-
-    # --- Seleção de Regiões na Barra Lateral ---
-    st.sidebar.header("✨ Escolha suas Regiões para Comparação")
-    regioes_disponiveis = sorted(df_unificado['Regiao'].dropna().unique())
-
-    # Definir índices padrão para evitar erros se as regiões não existirem
-    default_index_sul = regioes_disponiveis.index("Sul") if "Sul" in regioes_disponiveis else 0
-    default_index_norte = regioes_disponiveis.index("Norte") if "Norte" in regioes_disponiveis else (1 if len(regioes_disponiveis) > 1 else 0)
-
-    regiao_a = st.sidebar.selectbox("📍 **Região A**", regioes_disponiveis, index=default_index_sul)
-    regiao_b = st.sidebar.selectbox("📍 **Região B**", regioes_disponiveis, index=default_index_norte)
-
-    # Verifica se as regiões selecionadas são diferentes
-    if regiao_a == regiao_b:
-        st.sidebar.warning("⚠️ Por favor, selecione duas regiões **diferentes** para uma análise comparativa eficaz.")
-        st.stop() # Interrompe a execução para que o usuário selecione regiões distintas
-
-    coluna_temp = 'Temp_Media'
-
-    # --- Cores para os Anos (Melhorado e Vibrante) ---
-    cmap = get_cmap('viridis') # Uma paleta de cores mais vibrante e perceptível
-    anos = sorted(df_unificado['Ano'].unique())
-    cores_anos = {ano: cmap(i / len(anos)) for i, ano in enumerate(anos)}
-
-    # --- Geração dos Gráficos de Linha ---
-    st.subheader(f"📈 Gráficos de Temperatura Média Mensal: **{regiao_a}** vs. **{regiao_b}**")
-    st.markdown("Acompanhe a trajetória da temperatura mês a mês, ano a ano.")
+    # --- INTERFACE DO USUÁRIO (BARRA LATERAL) ---
+    st.sidebar.header("⚙️ Personalize sua Análise")
     
-    # Adjusted figsize for less flattened plots and changed style
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8), sharey=True) # Increased height
-    plt.style.use('ggplot') # Changed style to ggplot
+    regioes = sorted(df_unificado['Regiao'].dropna().unique())
+    todos_anos_disponiveis = sorted(df_unificado['Ano'].unique())
+    meses = sorted(df_unificado['Mês'].unique())
 
-    analise_regioes = {regiao_a: {}, regiao_b: {}}
-    meses_atipicos_geral = pd.DataFrame()
+    # Seleção interativa da variável climática
+    variaveis = {
+        'Temperatura Média (°C)': 'Temperatura Média (°C)',
+        'Precipitação Total (mm)': 'PRECIPITAÇÃO TOTAL, HORÁRIO (mm)',
+        'Radiação Global (Kj/m²)': 'RADIACAO GLOBAL (Kj/m²)'
+    }
+    
+    # Define a variável padrão e garante que ela exista no dicionário e nos dados
+    default_var = 'Radiação Global (Kj/m²)'
+    if default_var not in variaveis or variaveis[default_var] not in df_unificado.columns:
+        default_var = 'Temperatura Média (°C)'
+        if default_var not in variaveis or variaveis[default_var] not in df_unificado.columns:
+            default_var = list(variaveis.keys())[0]
 
-    for i, regiao in enumerate([regiao_a, regiao_b]):
+    default_var_index = list(variaveis.keys()).index(default_var)
+
+    nome_var = st.sidebar.selectbox(
+        "1. 🌡️ Qual Variável Climática Você Quer Analisar?",
+        list(variaveis.keys()),
+        index=default_var_index
+    )
+    coluna_var = variaveis[nome_var]
+    unidade_var = nome_var.split('(')[-1].replace(')', '') if '(' in nome_var else ''
+
+    # Seleção interativa de anos para o gráfico facetado
+    st.sidebar.markdown("---")
+    anos_selecionados = st.sidebar.multiselect(
+        "2. 📅 Selecione os Anos para o Gráfico Mensal:",
+        options=todos_anos_disponiveis,
+        default=todos_anos_disponiveis # Exibe todos por padrão
+    )
+
+    if not anos_selecionados:
+        st.warning("⚠️ **Atenção:** Por favor, selecione pelo menos um ano para visualizar os dados. Use o filtro na barra lateral.")
+        st.stop()
+    
+    # --- VISUALIZAÇÃO PRINCIPAL (Gráfico Facetado Interativo) ---
+    st.subheader(f"📈 Padrões Mensais de **{nome_var}** por Região")
+    st.markdown(f"""
+    Esta seção apresenta como a **{nome_var}** varia mês a mês em cada região do Brasil,
+    para os anos selecionados: **{', '.join(map(str, sorted(anos_selecionados)))}**.
+    Observe as tendências sazonais e as diferenças anuais para insights valiosos!
+    """)
+    
+    n_cols = 3 # Número de colunas para os subplots
+    n_rows = int(np.ceil(len(regioes) / n_cols))
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5*n_cols, 4.5*n_rows), sharey=True, dpi=100)
+    plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade
+
+    if n_rows * n_cols > 1:
+        axes = axes.flatten()
+    elif len(regioes) == 1:
+        axes = [axes]
+
+    # Cores para os anos (usando 'tab20' para mais distinção)
+    cmap = get_cmap('tab20')
+    cores_anos = {ano: cmap(i % cmap.N) for i, ano in enumerate(todos_anos_disponiveis)}
+
+    for i, regiao in enumerate(regioes):
+        ax = axes[i]
         df_regiao = df_unificado[df_unificado['Regiao'] == regiao]
-        medias_mensais = df_regiao.groupby(['Ano', 'Mês'])[coluna_temp].mean().reset_index()
-
-        # Cálculos para análise dinâmica de atipicidade
-        media_geral = medias_mensais[coluna_temp].mean()
-        desvio_padrao = medias_mensais[coluna_temp].std()
-        limite_superior = media_geral + 1.5 * desvio_padrao # Limite superior para atípicos
-        limite_inferior = media_geral - 1.5 * desvio_padrao # Limite inferior para atípicos
         
-        # Armazenar métricas para análise
-        analise_regioes[regiao]['media'] = round(media_geral, 1)
-        analise_regioes[regiao]['amplitude'] = round(medias_mensais[coluna_temp].max() - medias_mensais[coluna_temp].min(), 1)
+        for ano in anos_selecionados:
+            df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
+            if not df_ano_regiao.empty and df_ano_regiao.dropna().any():
+                ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', 
+                        color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=2.0)
         
-        # Para evitar erro se idxmax() ou idxmin() retornarem vazio
-        if not medias_mensais.empty:
-            analise_regioes[regiao]['mes_mais_quente'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmax(), 'Mês']
-            analise_regioes[regiao]['mes_mais_frio'] = medias_mensais.loc[medias_mensais[coluna_temp].idxmin(), 'Mês']
-        else:
-            analise_regioes[regiao]['mes_mais_quente'] = 'N/A'
-            analise_regioes[regiao]['mes_mais_frio'] = 'N/A'
-
-        atipicos_regiao = medias_mensais[
-            (medias_mensais[coluna_temp] > limite_superior) | (medias_mensais[coluna_temp] < limite_inferior)
-        ].copy() # Usar .copy() para evitar SettingWithCopyWarning
+        ax.set_title(f"📍 {regiao}", fontsize=15, fontweight='bold', color='#2F4F4F')
+        ax.set_xlabel('Mês', fontsize=12)
         
-        atipicos_regiao['Regiao'] = regiao # Adiciona a coluna de região aos atípicos
-        analise_regioes[regiao]['num_atipicos'] = len(atipicos_regiao)
-        meses_atipicos_geral = pd.concat([meses_atipicos_geral, atipicos_regiao])
+        if i % n_cols == 0:
+            ax.set_ylabel(f'{nome_var}\n({unidade_var})', fontsize=12)
+            
+        ax.set_xticks(meses)
+        ax.set_xticklabels([f'{m:02d}' for m in meses], fontsize=10)
+        ax.tick_params(axis='y', labelsize=10)
+        ax.grid(True, linestyle=':', alpha=0.6)
 
-        for ano in anos:
-            df_ano_regiao = medias_mensais[medias_mensais['Ano'] == ano]
-            if not df_ano_regiao.empty:
-                axes[i].plot(df_ano_regiao['Mês'], df_ano_regiao[coluna_temp], marker='o', linestyle='-',
-                             color=cores_anos[ano], label=f'{ano}', linewidth=2) # Linhas mais grossas
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
 
-        axes[i].set_title(f"Termômetro de {regiao}", fontsize=18, color='#333333') # Título mais impactante
-        axes[i].set_xlabel("Mês do Ano", fontsize=14)
-        if i == 0: # Apenas para o primeiro gráfico
-            axes[i].set_ylabel("Temperatura Média (°C)", fontsize=14)
-        axes[i].set_xticks(range(1, 13))
-        axes[i].set_xticklabels(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'], fontsize=12)
-        axes[i].tick_params(axis='both', which='major', labelsize=12)
-        axes[i].legend(title="Ano", fontsize=11, title_fontsize=13, bbox_to_anchor=(1.05, 1), loc='upper left')
-        
-        # Adiciona a faixa de atipicidade com uma cor suave
-        axes[i].axhspan(limite_inferior, limite_superior, color='gold', alpha=0.15, label='Faixa Típica (±1.5 DP)')
-        # Adiciona a linha da média geral
-        axes[i].axhline(media_geral, color='purple', linestyle='--', linewidth=1.5, label=f'Média Geral ({media_geral:.1f}°C)')
-        axes[i].grid(True, linestyle=':', alpha=0.7) # Grid mais suave
+    handles, labels = [], []
+    for ax_item in fig.get_axes():
+        if ax_item and ax_item.lines:
+            for line in ax_item.lines:
+                if line.get_label() not in labels and line.get_label() != '_nolegend_':
+                    handles.append(line)
+                    labels.append(line.get_label())
+    
+    if handles and labels:
+        fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.08, 1), 
+                   fontsize=11, title_fontsize='13', frameon=True, fancybox=True, shadow=True)
 
-    plt.tight_layout(rect=[0, 0, 0.95, 1]) # Ajusta o layout para a legenda não cortar
+    plt.tight_layout(rect=[0, 0, 0.95, 1])
     st.pyplot(fig)
 
-    # --- Exibir os Meses/Anos Atípicos ---
+    # --- Análise e Insights ---
     st.markdown("---")
-    st.subheader("🚨 Meses e Anos com Temperaturas Atípicas Identificadas")
-    st.markdown(
-        """
-        Estas são as ocorrências onde a temperatura média mensal se desviou **significativamente** do padrão
-        (fora de $\pm 1.5$ vezes o desvio padrão).
-        """
-    )
+    st.header("💡 Seus Insights Climáticos: O Que os Dados Revelam?")
+    st.markdown("""
+    Este painel não é apenas um conjunto de gráficos; é uma **janela interativa** para o comportamento climático dinâmico das regiões brasileiras.
+    Use os filtros na barra lateral para moldar sua narrativa e descobrir padrões que podem ser cruciais para diversos setores,
+    como agricultura, gestão de recursos hídricos, planejamento urbano e muito mais!
+    """)
     
-    if not meses_atipicos_geral.empty:
-        # Renomear colunas para melhor clareza
-        meses_atipicos_geral = meses_atipicos_geral.rename(columns={'Mês': 'Mês (Número)', 'Temp_Media': 'Temperatura Média (°C)'})
-        st.dataframe(meses_atipicos_geral[['Regiao', 'Ano', 'Mês (Número)', 'Temperatura Média (°C)']].sort_values(by=['Regiao', 'Ano', 'Mês (Número)']), use_container_width=True)
-    else:
-        st.info("🎉 Nenhuma temperatura atípica foi identificada para as regiões e período selecionados. Que boa notícia!")
-
-
-    # --- Análise Dinâmica Comparativa ---
-    st.markdown("---")
-    st.subheader("💡 Análise Comparativa Detalhada entre as Regiões")
-    st.markdown(f"Entenda as nuances climáticas e compare as características térmicas de **{regiao_a}** e **{regiao_b}**.")
+    st.markdown("""
+    ### 🎯 Guiando Sua Análise Profunda:
+    * **Padrões Sazonais Clássicos:** Observe como a linha de cada ano (e de cada variável) sobe e desce ao longo dos meses. Isso reflete as estações do ano e suas características climáticas inerentes. Por exemplo, note os picos de chuva no verão do Sudeste ou o período mais seco no Centro-Oeste.
+    * **Diferenças Regionais Marcantes:** Compare os gráficos entre as diferentes regiões. Qual região exibe a temperatura mais estável durante o ano? Qual delas possui a maior amplitude na precipitação? Essas distinções são fundamentalmente moldadas pela geografia única e pelos sistemas climáticos atuantes em cada área do Brasil.
+    * **Variabilidade Interanual e Eventos Extremos:** Ao selecionar e comparar diferentes anos, preste atenção em como um mesmo mês pode apresentar valores muito distintos entre um ano e outro. Isso é a **variabilidade climática interanual**, e anos com desvios significativos podem indicar a ocorrência de fenômenos climáticos notáveis, como:
+        * 🔥 **Ondas de Calor/Frio Incomuns:** Picos ou vales extremos de temperatura.
+        * 💧 **Secas Severas/Inundações:** Meses com precipitação drasticamente abaixo ou muito acima da média histórica.
+        * ☀️ **Anomalias de Radiação Solar:** Períodos com incidência solar atípica (excesso de sol resultando em mais calor e evaporação, ou excesso de nebulosidade).
+    """)
     
-    # Usando colunas para um layout mais organizado
-    col1, col2 = st.columns(2)
+    st.markdown("""
+    **💭 Sua Tarefa:** Ao explorar os dados, faça-se perguntas instigantes:
+    * "*Há algum ano que se destaca de forma inusitada em uma região específica para a variável que estou analisando?*"
+    * "*As tendências observadas em uma variável (ex: temperatura) parecem se correlacionar com as de outra (ex: precipitação)?*"
+    * "*O que esses padrões e desvios significam para a **sustentabilidade**, a **economia** e a **vida** nas regiões do Brasil?*"
+    """)
 
-    with col1:
-        st.markdown(f"""
-        <div style="background-color:#e0f7fa; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
-            <h4 style="color:#00796b;">✨ Características de {regiao_a}</h4>
-            <ul>
-                <li>🌡️ <strong>Temperatura Média Geral:</strong> <span style="color:#e65100; font-weight:bold;">{analise_regioes[regiao_a]['media']}°C</span></li>
-                <li>↔️ <strong>Amplitude Térmica Anual:</strong> <span style="color:#c2185b; font-weight:bold;">{analise_regioes[regiao_a]['amplitude']}°C</span></li>
-                <li>☀️ <strong>Mês Tipicamente Mais Quente:</strong> Mês {analise_regioes[regiao_a]['mes_mais_quente']}</li>
-                <li>❄️ <strong>Mês Tipicamente Mais Frio:</strong> Mês {analise_regioes[regiao_a]['mes_mais_frio']}</li>
-                <li>❗ <strong>Eventos Atípicos (meses fora do padrão):</strong> <span style="color:#d32f2f; font-weight:bold;">{analise_regioes[regiao_a]['num_atipicos']}</span></li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # --- Análise de Extremos de Radiação (com emojis e melhor formatação) ---
+    if nome_var == 'Radiação Global (Kj/m²)':
+        st.markdown("---")
+        st.header("⚡ Foco Especial: Análise de Extremos de Radiação Global")
+        st.markdown("""
+        A radiação solar é uma variável climática de **extrema importância**. Ao focar nela, podemos identificar os momentos de maior e menor incidência solar,
+        que são cruciais para setores como **energia fotovoltaica**, **agricultura** e para entender **eventos de seca** ou **excessiva nebulosidade**.
+        """)
 
-    with col2:
-        st.markdown(f"""
-        <div style="background-color:#fff3e0; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
-            <h4 style="color:#ef6c00;">✨ Características de {regiao_b}</h4>
-            <ul>
-                <li>🌡️ <strong>Temperatura Média Geral:</strong> <span style="color:#00796b; font-weight:bold;">{analise_regioes[regiao_b]['media']}°C</span></li>
-                <li>↔️ <strong>Amplitude Térmica Anual:</strong> <span style="color:#880e4f; font-weight:bold;">{analise_regioes[regiao_b]['amplitude']}°C</span></li>
-                <li>☀️ <strong>Mês Tipicamente Mais Quente:</strong> Mês {analise_regioes[regiao_b]['mes_mais_quente']}</li>
-                <li>❄️ <strong>Mês Tipicamente Mais Frio:</strong> Mês {analise_regioes[regiao_b]['mes_mais_frio']}</li>
-                <li>❗ <strong>Eventos Atípicos (meses fora do padrão):</strong> <span style="color:#d32f2f; font-weight:bold;">{analise_regioes[regiao_b]['num_atipicos']}</span></li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        if coluna_var in df_unificado.columns and not df_unificado[coluna_var].empty and df_unificado[coluna_var].max() > 0:
+            # Identifica o maior valor de radiação global
+            idx_max = df_unificado[coluna_var].idxmax()
+            max_rad_data = df_unificado.loc[idx_max]
 
-    st.markdown("---")
-    st.subheader("🔬 Insights e Interpretações dos Dados")
-    st.markdown(f"""
-    <div style="background-color:#f9fbe7; padding: 25px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.15);">
-        <p style="font-size:1.1em;">
-            A região <strong>{regiao_a if analise_regioes[regiao_a]['amplitude'] > analise_regioes[regiao_b]['amplitude'] else regiao_b}</strong> se destaca por apresentar a **maior variação sazonal** de temperatura. Isso significa que, ao longo do ano, essa região experimenta flutuações mais significativas entre as estações quentes e frias.
-        </p>
-        <p style="font-size:1.1em;">
-            Em termos de calor, a região <strong>{regiao_a if analise_regioes[regiao_a]['media'] > analise_regioes[regiao_b]['media'] else regiao_b}</strong> é, em média, consistentemente **mais quente**, evidenciando um clima predominante com temperaturas elevadas.
-        </p>
-        <p style="font-size:1.1em;">
-            Com <strong>{analise_regioes[regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b]['num_atipicos']}</strong> meses atípicos registrados, a região <strong>{regiao_a if analise_regioes[regiao_a]['num_atipicos'] > analise_regioes[regiao_b]['num_atipicos'] else regiao_b}</strong> demonstra uma **maior propensão a eventos climáticos fora do padrão**, como ondas de calor intensas ou frentes frias incomuns. Isso pode indicar uma maior variabilidade interanual ou a influência de fenômenos climáticos extremos.
-        </p>
-        <p style="font-size:1.1em;">
-            Os gráficos apresentados revelam padrões sazonais notavelmente distintos. Enquanto <strong>{regiao_a}</strong> {f"exibe uma **sazonalidade muito marcada**, com picos e vales de temperatura bem acentuados ao longo do ano" if analise_regioes[regiao_a]['amplitude'] > 5 else "mantém **temperaturas mais estáveis** e menos flutuantes ao longo das estações"}, <strong>{regiao_b}</strong> {f"apresenta **variações mais pronunciadas** entre as estações, indicando um regime térmico mais dinâmico" if analise_regioes[regiao_b]['amplitude'] > 5 else "mostra uma **pequena variação** entre os meses, sugerindo um clima mais homogêneo termicamente"}.
-        </p>
-        <p style="font-size:1.1em;">
-            A detecção desses meses atípicos é vital para compreender os **desvios do clima esperado** e pode estar diretamente ligada a **eventos climáticos extremos**, como secas prolongadas, chuvas torrenciais, ondas de calor sem precedentes ou frentes frias rigorosas, bem como mudanças nos padrões atmosféricos globais.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+            # Identifica o menor valor de radiação global (apenas valores > 0 para evitar leituras de sensores off)
+            min_valid_rad = df_unificado[df_unificado[coluna_var] > 0][coluna_var].min()
+            idx_min_valid = df_unificado[df_unificado[coluna_var] == min_valid_rad].index[0]
+            min_rad_data = df_unificado.loc[idx_min_valid]
+
+            col_max, col_min = st.columns(2)
+
+            with col_max:
+                st.markdown(f"""
+                <div style="background-color:#fffde7; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="color:#ffc107;">☀️ Raio de Sol Mais Intenso Registrado</h4>
+                    <p style="font-size:1.1em;">O **maior valor** de Radiação Global foi de:</p>
+                    <p style="font-size:1.8em; font-weight:bold; color:#f57c00;">{max_rad_data[coluna_var]:.2f} Kj/m²</p>
+                    <ul>
+                        <li><span style="font-weight:bold;">Região:</span> {max_rad_data['Regiao']}</li>
+                        <li><span style="font-weight:bold;">Mês:</span> {int(max_rad_data['Mês']):02d}</li>
+                        <li><span style="font-weight:bold;">Ano:</span> {int(max_rad_data['Ano'])}</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col_min:
+                st.markdown(f"""
+                <div style="background-color:#e0f2f7; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="color:#0288d1;">☁️ Período de Menos Luz Solar (Excluindo Zeros)</h4>
+                    <p style="font-size:1.1em;">O **menor valor significativo** de Radiação Global foi de:</p>
+                    <p style="font-size:1.8em; font-weight:bold; color:#01579b;">{min_rad_data[coluna_var]:.2f} Kj/m²</p>
+                    <ul>
+                        <li><span style="font-weight:bold;">Região:</span> {min_rad_data['Regiao']}</li>
+                        <li><span style="font-weight:bold;">Mês:</span> {int(min_rad_data['Mês']):02d}</li>
+                        <li><span style="font-weight:bold;">Ano:</span> {int(min_rad_data['Ano'])}</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("""
+            ### 🌟 Por Que Isso Importa? A Relevância dos Extremos de Radiação
+
+            A compreensão desses extremos de radiação é **fundamental** para diversas aplicações:
+
+            * **Energia Solar:** Os picos de radiação indicam as melhores condições para otimizar a geração de energia fotovoltaica, enquanto os vales apontam desafios que sistemas solares devem contornar.
+            * **Agricultura e Biomas:** A radiação afeta diretamente a fotossíntese (crescimento das plantas) e a evapotranspiração, impactando diretamente a produtividade agrícola e o balanço hídrico natural dos ecossistemas.
+            * **Clima e Ambiente:** Extremos de radiação influenciam a temperatura do ar e do solo, a formação de nuvens e podem até ter um impacto na qualidade do ar, especialmente em grandes centros urbanos.
+
+            Essas informações são **poderosas ferramentas** para o planejamento de infraestrutura resiliente, o desenvolvimento de estratégias agrícolas inteligentes e para a adaptação estratégica às mudanças climáticas em nível regional.
+            """)
+        else:
+            st.info("ℹ️ Dados de Radiação Global não disponíveis ou insuficientes para uma análise significativa de extremos para a variável selecionada.")
 
 except FileNotFoundError:
-    st.error(f"❌ **Erro Crítico:** O arquivo de dados '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e a existência do arquivo na pasta `medias`.")
+    st.error(f"❌ **Erro Crítico:** O arquivo de dados '{caminho_arquivo_unificado}' não foi encontrado. Por favor, verifique o caminho e o nome do arquivo na pasta `medias`.")
     st.info("💡 **Dica:** Certifique-se de que o arquivo `medias_mensais_geo_2020_2025.csv` está localizado corretamente na pasta `medias` dentro do seu projeto.")
 except KeyError as e:
-    st.error(f"❌ **Erro de Dados:** A coluna esperada '{e}' não foi encontrada no arquivo CSV. Verifique se o nome da coluna está correto e se o arquivo está no formato esperado.")
-    st.info("💡 **Dica:** O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês' e 'Temp_Media'.")
+    st.error(f"❌ **Erro de Dados:** A coluna esperada '{e}' não foi encontrada no arquivo CSV ou não pôde ser calculada. Verifique se o seu CSV possui as colunas esperadas para a variável selecionada ou para o cálculo da temperatura média.")
+    st.info("💡 **Dica:** O arquivo CSV deve conter colunas como 'Regiao', 'Ano', 'Mês', e, para temperatura média, 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' e 'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' ou já ter uma coluna 'Temperatura Média (°C)'.")
 except Exception as e:
     st.error(f"💥 **Ops! Ocorreu um erro inesperado:** {e}")
     st.warning("🔄 **Sugestão:** Tente recarregar a página. Se o problema persistir, pode ser um erro nos dados ou no script. Por favor, entre em contato com o suporte técnico se necessário.")
 
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; font-size: small; color: gray;'>
-    🌟 Desenvolvido com paixão e dados por [Ana Sophia e Igor Andrade] 🌟
-</div>
-""", unsafe_allow_html=True)
+st.markdown("Desenvolvido com 💙 e dados abertos para o conhecimento climático. [Ana Sophia e Igor Andrade] © 2025")
