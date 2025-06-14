@@ -9,7 +9,7 @@ import matplotlib.ticker as mticker # Import for more refined tick formatting
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(
     layout="wide",
-    page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷",
+    page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷", # Keep 2020-2025 as it's the data range
     initial_sidebar_state="expanded",
     menu_items={
         'Get Help': 'https://www.streamlit.io/help', # Replace with actual help link
@@ -31,6 +31,25 @@ st.markdown("""
     }
 
     /* Títulos e Textos */
+    /* NEW STYLE FOR MAIN TITLE (h1) to match image */
+    h1 {
+        color: #212121; /* Very dark gray, almost black */
+        text-align: center;
+        font-size: 3.2em; /* Slightly smaller than before but still very large */
+        font-weight: 800; /* Extra bold */
+        margin-bottom: 5px; /* Reduce space after main title to bring emojis closer */
+        line-height: 1.2; /* Adjust line height for multi-line titles */
+    }
+
+    /* Emojis style below h1 */
+    .emoji-title {
+        font-size: 2.5em; /* Large emoji size */
+        text-align: center;
+        margin-top: 5px; /* Space above emojis */
+        margin-bottom: 20px; /* Space below emojis before intro text */
+    }
+
+
     .big-font {
         font-size:24px !important;
         font-weight: bold;
@@ -44,13 +63,7 @@ st.markdown("""
         text-align: center;
         margin-bottom: 25px;
     }
-    h1 {
-        color: #263238; /* Darker title */
-        text-align: center;
-        font-size: 3.5em;
-        margin-bottom: 20px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
+
     h2 {
         color: #37474f; /* Slightly lighter dark title */
         font-size: 2.2em;
@@ -115,7 +128,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
-st.title("🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊")
+# Modified st.title to match the image style
+st.title("Temperaturas e Chuvas no Brasil: Uma\nJornada Climática entre 2020 e 2025!") # Changed 2024 to 2025 to match data
+st.markdown("<p class='emoji-title'>🌧️ ☀️</p>", unsafe_allow_html=True) # Add emojis in their own styled paragraph
+
 st.markdown("""
 <p class="big-font">Explore os padrões climáticos regionais e identifique tendências e anomalias nas temperaturas, precipitações e radiação solar.</p>
 <p class="medium-font">Utilize os filtros na barra lateral para personalizar sua análise e mergulhar nos dados.</p>
