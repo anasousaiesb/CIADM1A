@@ -127,10 +127,39 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
-# Modified st.title to match the image style
-st.title("Temperaturas e Chuvas no Brasil: Uma\nJornada Climática entre 2020 e 2025!") # Changed 2024 to 2025 to match data
-st.markdown("<p class='emoji-title'>🌧️ ☀️</p>", unsafe_allow_html=True) # Add emojis in their own styled paragraph
+# --- CONFIGURAÇÕES INICIAIS ---
+st.set_page_config(layout="wide", page_title="Análise Climática Interativa por Região ☀️")
+
+# CSS para estilização aprimorada do título
+st.markdown("""
+<style>
+.stApp {
+    background-color: #f4f7fa; /* Fundo suave para o aplicativo */
+}
+.main-title {
+    font-size: 3.5em;
+    font-weight: 700;
+    color: #2E8B57; /* Um verde mais escuro e atraente */
+    text-align: center;
+    margin-bottom: 0.5em;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.subtitle {
+    font-size: 1.8em;
+    color: #3CB371; /* Um verde um pouco mais claro */
+    text-align: center;
+    margin-top: -0.5em;
+    margin-bottom: 1.5em;
+}
+.header-section {
+    background-color: #e6f7ee; /* Fundo levemente verde para a seção de cabeçalho */
+    padding: 1.5em;
+    border-radius: 10px;
+    margin-bottom: 2em;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown("""
 <p class="big-font">Explore os padrões climáticos regionais e identifique tendências e anomalias nas temperaturas, precipitações e radiação solar.</p>
