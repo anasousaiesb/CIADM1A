@@ -9,90 +9,48 @@ from matplotlib.cm import get_cmap
 st.set_page_config(
     layout="wide",
     page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷",
-    initial_sidebar_state="expanded",
-    icon="🌎" # Adiciona um ícone na aba do navegador
+    initial_sidebar_state="expanded"
 )
 
 # --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
-st.title("🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊")
 
-# Custom CSS for better aesthetics and font control
+# Custom CSS for the title based on the image
 st.markdown("""
 <style>
-    .big-font {
-        font-size:22px !important;
+    .main-title {
+        font-size: 4em; /* Adjust as needed for similar size */
         font-weight: bold;
-        color: #2E8B57; /* SeaGreen */
+        color: #333333; /* Dark gray for the text */
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 0px;
+    }
+    .sub-title {
+        font-size: 1.5em;
+        color: #666666; /* Lighter gray for the subtitle */
+        text-align: center;
+        margin-top: 0px;
+    }
+    .emoji {
+        font-size: 0.8em; /* Adjust emoji size relative to text */
+        vertical-align: middle;
+        margin-left: 10px;
+    }
+    .big-font {
+        font-size:20px !important;
+        font-weight: bold;
+        color: #2e8b57; /* SeaGreen */
     }
     .medium-font {
-        font-size:17px !important;
-        color: #4682B4; /* SteelBlue */
-        text-align: center;
-        margin-top: 5px;
-        margin-bottom: 20px;
-    }
-    .stSelectbox label {
-        font-size: 1.1em;
-        font-weight: bold;
-        color: #333333;
-    }
-    .stMultiSelect label {
-        font-size: 1.1em;
-        font-weight: bold;
-        color: #333333;
-    }
-    .stButton>button {
-        color: white;
-        background-color: #4CAF50;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-size: 1.1em;
-    }
-    .css-1d391kg e1fqkh3o1 { /* Streamlit container for main content */
-        padding-top: 30px;
-    }
-    h1, h2, h3, h4, h5, h6 {
-        color: #2F4F4F; /* DarkSlateGray for headings */
-    }
-    /* Custom styling for the info/warning boxes for radiation extremes */
-    .radiation-info-box {
-        background-color: #e8f5e9; /* Light green */
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border: 1px solid #4CAF50;
-        margin-bottom: 20px;
-    }
-    .radiation-warning-box {
-        background-color: #ffebee; /* Light red */
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        border: 1px solid #F44336;
-        margin-bottom: 20px;
-    }
-    .radiation-info-box h4, .radiation-warning-box h4 {
-        color: #1B5E20; /* Darker green */
-        font-size: 1.4em;
-        margin-top: 0;
-    }
-     .radiation-warning-box h4 {
-        color: #D32F2F; /* Darker red */
-    }
-    .radiation-info-box ul, .radiation-warning-box ul {
-        list-style-type: none;
-        padding-left: 0;
-    }
-    .radiation-info-box li, .radiation-warning-box li {
-        margin-bottom: 5px;
-    }
-    .stPlotlyChart { /* Adjust Plotly chart size if needed */
-        width: 100%;
-        height: 550px;
+        font-size:16px !important;
+        color: #4682b4; /* SteelBlue */
     }
 </style>
+""", unsafe_allow_html=True)
+
+# Main title with emojis and custom styling
+st.markdown("""
+<h1 class="main-title">Análise Personalizada de Radiação Global <span class="emoji">☀️</span><span class="emoji">📊</span></h1>
+<p class="sub-title">Explorando Padrões Climáticos no Brasil (2020-2025) BR</p>
 """, unsafe_allow_html=True)
 
 st.markdown("""
@@ -135,7 +93,7 @@ def carregar_dados(caminho):
     # Certificar-se de que as colunas 'Mês' e 'Ano' são numéricas
     df['Mês'] = pd.to_numeric(df['Mês'], errors='coerce')
     df['Ano'] = pd.to_numeric(df['Ano'], errors='coerce')
-    df = df.dropna(subset=['Mês', 'Ano', 'Regiao']) # Drop rows where Mês, Ano or Regiao are NaN
+    df = df.dropna(subset=['Mês', 'Ano'])
     return df
 
 # --- CARREGAMENTO DOS DADOS E TRATAMENTO DE ERROS ---
@@ -145,7 +103,7 @@ try:
     # --- INTERFACE DO USUÁRIO (BARRA LATERAL) ---
     st.sidebar.header("⚙️ Personalize sua Análise")
     
-    regioes = sorted(df_unificado['Regiao'].dropna().unique())
+    regioes = sorted(df_unificado['Regiao'].dropna().unique()) # Garante que regiões vazias não apareçam
     todos_anos_disponiveis = sorted(df_unificado['Ano'].unique())
     meses = sorted(df_unificado['Mês'].unique())
 
@@ -159,8 +117,10 @@ try:
     # Define a variável padrão e garante que ela exista no dicionário e nos dados
     default_var = 'Radiação Global (Kj/m²)'
     if default_var not in variaveis or variaveis[default_var] not in df_unificado.columns:
+        # Se a variável padrão não estiver disponível, tenta a temperatura
         default_var = 'Temperatura Média (°C)'
         if default_var not in variaveis or variaveis[default_var] not in df_unificado.columns:
+            # Se nem a temperatura estiver, pega a primeira disponível
             default_var = list(variaveis.keys())[0]
 
     default_var_index = list(variaveis.keys()).index(default_var)
@@ -195,10 +155,8 @@ try:
     
     n_cols = 3 # Número de colunas para os subplots
     n_rows = int(np.ceil(len(regioes) / n_cols))
-    
-    # Use a style for the plot that is visually appealing and consistent with Streamlit's look
-    plt.style.use('seaborn-v0_8-pastel') # Softer colors, good for web
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5.5*n_cols, 5*n_rows), sharey=True, dpi=100)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, figsize=(5*n_cols, 4.5*n_rows), sharey=True, dpi=100)
+    plt.style.use('seaborn-v0_8-darkgrid') # Estilo mais moderno e com grade
 
     # Flatten axes if it's a 2D array, or ensure it's iterable if only one subplot
     if n_rows * n_cols > 1:
@@ -206,9 +164,9 @@ try:
     elif len(regioes) == 1:
         axes = [axes]
 
-    # Cores para os anos (usando 'viridis' ou 'plasma' para um gradiente de cores moderno)
-    cmap = get_cmap('viridis', len(todos_anos_disponiveis))
-    cores_anos = {ano: cmap(i) for i, ano in enumerate(todos_anos_disponiveis)}
+    # Cores para os anos (usando 'tab20' para mais distinção)
+    cmap = get_cmap('tab20')
+    cores_anos = {ano: cmap(i % cmap.N) for i, ano in enumerate(todos_anos_disponiveis)}
 
     for i, regiao in enumerate(regioes):
         ax = axes[i]
@@ -217,11 +175,11 @@ try:
         # Plotar apenas os anos selecionados pelo usuário
         for ano in anos_selecionados:
             df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
-            if not df_ano_regiao.empty and df_ano_regiao.dropna().any():
+            if not df_ano_regiao.empty and df_ano_regiao.dropna().any(): # Verifica se há dados válidos para plotar
                 ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', 
-                        color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=2.0, alpha=0.8)
+                             color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=2.0)
         
-        ax.set_title(f"📍 {regiao}", fontsize=15, fontweight='bold', color='#4A4A4A') # Darker grey
+        ax.set_title(f"📍 {regiao}", fontsize=15, fontweight='bold', color='#2F4F4F') # DarkSlateGray
         ax.set_xlabel('Mês', fontsize=12)
         
         if i % n_cols == 0: # Adicionar ylabel apenas na primeira coluna de cada linha
@@ -230,7 +188,7 @@ try:
         ax.set_xticks(meses)
         ax.set_xticklabels([f'{m:02d}' for m in meses], fontsize=10)
         ax.tick_params(axis='y', labelsize=10)
-        ax.grid(True, linestyle='--', alpha=0.7) # Lighter grid lines
+        ax.grid(True, linestyle=':', alpha=0.6)
 
     # Remover subplots vazios, se houver
     for j in range(i + 1, len(axes)):
@@ -238,7 +196,7 @@ try:
 
     # Criar uma única legenda para todo o gráfico
     handles, labels = [], []
-    for ax_item in fig.get_axes():
+    for ax_item in fig.get_axes(): # Itera sobre todos os eixos da figura
         if ax_item and ax_item.lines:
             for line in ax_item.lines:
                 if line.get_label() not in labels and line.get_label() != '_nolegend_':
@@ -246,12 +204,10 @@ try:
                     labels.append(line.get_label())
     
     if handles and labels:
-        # Sort labels and handles for consistent legend order
-        sorted_labels, sorted_handles = zip(*sorted(zip(labels, handles), key=lambda t: int(t[0])))
-        fig.legend(sorted_handles, sorted_labels, title='Ano', loc='upper right', bbox_to_anchor=(1.08, 1), 
-                         fontsize=11, title_fontsize='13', frameon=True, fancybox=True, shadow=True)
+        fig.legend(handles, labels, title='Ano', loc='upper right', bbox_to_anchor=(1.08, 1), 
+                   fontsize=11, title_fontsize='13', frameon=True, fancybox=True, shadow=True)
 
-    plt.tight_layout(rect=[0, 0, 0.95, 1])
+    plt.tight_layout(rect=[0, 0, 0.95, 1]) # Ajusta para acomodar a legenda
     st.pyplot(fig)
 
     # --- Análise e Insights ---
@@ -289,30 +245,25 @@ try:
         que são cruciais para setores como **energia fotovoltaica**, **agricultura** e para entender **eventos de seca** ou **excessiva nebulosidade**.
         """)
 
-        # Ensure that the column exists and has non-zero values for analysis
         if coluna_var in df_unificado.columns and not df_unificado[coluna_var].empty and df_unificado[coluna_var].max() > 0:
             # Identifica o maior valor de radiação global
             idx_max = df_unificado[coluna_var].idxmax()
             max_rad_data = df_unificado.loc[idx_max]
 
             # Identifica o menor valor de radiação global (apenas valores > 0 para evitar leituras de sensores off)
-            # Find the minimum value greater than 0
-            df_positive_rad = df_unificado[df_unificado[coluna_var] > 0]
-            if not df_positive_rad.empty:
-                min_valid_rad = df_positive_rad[coluna_var].min()
-                idx_min_valid = df_positive_rad[df_positive_rad[coluna_var] == min_valid_rad].index[0]
-                min_rad_data = df_unificado.loc[idx_min_valid]
-            else:
-                min_rad_data = None # Handle case where all radiation values are 0 or less
+            min_valid_rad = df_unificado[df_unificado[coluna_var] > 0][coluna_var].min()
+            idx_min_valid = df_unificado[df_unificado[coluna_var] == min_valid_rad].index[0]
+            min_rad_data = df_unificado.loc[idx_min_valid]
+
 
             col_max, col_min = st.columns(2)
 
             with col_max:
                 st.markdown(f"""
-                <div class="radiation-info-box">
-                    <h4>☀️ Raio de Sol Mais Intenso Registrado</h4>
+                <div style="background-color:#fffde7; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="color:#ffc107;">☀️ Raio de Sol Mais Intenso Registrado</h4>
                     <p style="font-size:1.1em;">O **maior valor** de Radiação Global foi de:</p>
-                    <p style="font-size:1.4em; font-weight:bold; color:#FF8F00;">{max_rad_data[coluna_var]:.2f} Kj/m²</p>
+                    <p style="font-size:1.2em; font-weight:bold; color:#f57c00;">{max_rad_data[coluna_var]:.2f} Kj/m²</p>
                     <ul>
                         <li><span style="font-weight:bold;">Região:</span> {max_rad_data['Regiao']}</li>
                         <li><span style="font-weight:bold;">Mês:</span> {int(max_rad_data['Mês']):02d}</li>
@@ -322,21 +273,18 @@ try:
                 """, unsafe_allow_html=True)
 
             with col_min:
-                if min_rad_data is not None:
-                    st.markdown(f"""
-                    <div class="radiation-warning-box">
-                        <h4>☁️ Período de Menos Luz Solar (Excluindo Zeros)</h4>
-                        <p style="font-size:1.1em;">O **menor valor significativo** de Radiação Global foi de:</p>
-                        <p style="font-size:1.4em; font-weight:bold; color:#0D47A1;">{min_rad_data[coluna_var]:.2f} Kj/m²</p>
-                        <ul>
-                            <li><span style="font-weight:bold;">Região:</span> {min_rad_data['Regiao']}</li>
-                            <li><span style="font-weight:bold;">Mês:</span> {int(min_rad_data['Mês']):02d}</li>
-                            <li><span style="font-weight:bold;">Ano:</span> {int(min_rad_data['Ano'])}</li>
-                        </ul>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.info("ℹ️ Não foram encontrados valores de Radiação Global maiores que zero para análise do menor valor.")
+                st.markdown(f"""
+                <div style="background-color:#e0f2f7; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <h4 style="color:#0288d1;">☁️ Período de Menos Luz Solar (Excluindo Zeros)</h4>
+                    <p style="font-size:1.1em;">O **menor valor significativo** de Radiação Global foi de:</p>
+                    <p style="font-size:1.2em; font-weight:bold; color:#01579b;">{min_rad_data[coluna_var]:.2f} Kj/m²</p>
+                    <ul>
+                        <li><span style="font-weight:bold;">Região:</span> {min_rad_data['Regiao']}</li>
+                        <li><span style="font-weight:bold;">Mês:</span> {int(min_rad_data['Mês']):02d}</li>
+                        <li><span style="font-weight:bold;">Ano:</span> {int(min_rad_data['Ano'])}</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
 
             st.markdown("""
             ### 🌟 Por Que Isso Importa? A Relevância dos Extremos de Radiação
