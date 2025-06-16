@@ -8,7 +8,7 @@ from matplotlib.cm import get_cmap
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(
     layout="wide",
-    page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷",
+    page_title="🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊 🇧🇷",
     initial_sidebar_state="expanded"
 )
 
