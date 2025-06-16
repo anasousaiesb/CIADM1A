@@ -13,7 +13,36 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-st.title("🌎 Análise Climática Regional do Brasil (2020-2025)")
+# Custom CSS for the title based on the image
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 4em; /* Adjust as needed for similar size */
+        font-weight: bold;
+        color: #333333; /* Dark gray for the text */
+        text-align: center;
+        margin-bottom: 0px;
+    }
+    .sub-title {
+        font-size: 1.5em;
+        color: #666666; /* Lighter gray for the subtitle */
+        text-align: center;
+        margin-top: 0px;
+    }
+    .emoji {
+        font-size: 0.8em; /* Adjust emoji size relative to text */
+        vertical-align: middle;
+        margin-left: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Main title with emojis and custom styling
+st.markdown("""
+<h1 class="main-title">Análise Climática Regional do Brasil <span class="emoji">☀️🔍</span><span class="emoji">📊</span></h1>
+<p class="sub-title">Explorando Padrões Climáticos no Brasil (2020-2025) BR</p>
+""", unsafe_allow_html=True)
+
 st.markdown("Bem-vindo à ferramenta de análise climática. Explore as tendências de temperatura, precipitação e radiação solar em diferentes regiões do Brasil entre 2020 e 2025.")
 
 # Caminho relativo ao arquivo CSV
@@ -42,7 +71,7 @@ def carregar_dados(caminho):
         if 'TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)' in df.columns and \
            'TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)' in df.columns:
             df['Temp_Media'] = (df['TEMPERATURA MÁXIMA NA HORA ANT. (AUT) (°C)'] +
-                                df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
+                                 df['TEMPERATURA MÍNIMA NA HORA ANT. (AUT) (°C)']) / 2
         else:
             st.error("Erro: A coluna 'Temp_Media' não existe e não pôde ser calculada. Verifique o seu arquivo CSV.")
             st.stop()
@@ -116,14 +145,14 @@ try:
         df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(range(1, 13))
         if not df_ano_regiao.empty:
             ax_sazonal.plot(df_ano_regiao.index, df_ano_regiao.values, marker='o', linestyle='-',
-                            color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=1.5, alpha=0.8)
+                             color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=1.5, alpha=0.8)
         valores_anuais_por_mes[ano] = df_ano_regiao.values
 
     df_valores_anuais = pd.DataFrame(valores_anuais_por_mes, index=range(1, 13))
     media_historica_mensal = df_valores_anuais.mean(axis=1)
 
     ax_sazonal.plot(media_historica_mensal.index, media_historica_mensal.values, linestyle='--', color='black',
-                    label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=3, alpha=0.9)
+                     label=f'Média Histórica ({int(min(anos))}-{int(max(anos))})', linewidth=3, alpha=0.9)
 
     ax_sazonal.set_title(f'Variação Mensal de {nome_var} por Ano - Região {regiao_selecionada}', fontsize=18, pad=20)
     ax_sazonal.set_xlabel('Mês', fontsize=14, labelpad=15)
@@ -200,7 +229,7 @@ try:
             maior_desvio = desvios_abs_anuais.max()
 
             st.markdown(f"Na Região **{regiao_selecionada}**, para a variável **{nome_var}**: ")
-            st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** (ou extremo) neste período, com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica geral.")
+            st.markdown(f"- O ano de **{int(ano_mais_atipico)}** se destaca como o **mais atípico** neste período, com as médias mensais se afastando em média **{maior_desvio:.2f} {unidade_var}** da média histórica geral.")
 
             st.markdown(f"**Hipótese de Variabilidade:** Se os anos mais recentes (por exemplo, {int(max(anos))-1} ou {int(max(anos))}) aparecem consistentemente com os maiores desvios, isso pode sugerir uma hipótese de que **o clima na região está se tornando mais variável e propenso a extremos** (tanto para cima quanto para baixo da média). Anos que se desviam significativamente da média podem se tornar mais frequentes.")
 
