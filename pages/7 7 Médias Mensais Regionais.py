@@ -8,14 +8,33 @@ from matplotlib.cm import get_cmap
 # --- CONFIGURAÇÕES DA PÁGINA ---
 st.set_page_config(
     layout="wide",
-    page_title="Clima Brasil: Análise Interativa (2020-2025) 🇧🇷",
+    page_title="🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊 🇧🇷",
     initial_sidebar_state="expanded"
 )
 
 # --- TÍTULO PRINCIPAL E INTRODUÇÃO ---
-st.title("🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊")
+
+# Custom CSS for the title based on the image
 st.markdown("""
 <style>
+    .main-title {
+        font-size: 4em; /* Adjust as needed for similar size */
+        font-weight: bold;
+        color: #333333; /* Dark gray for the text */
+        text-align: center;
+        margin-bottom: 0px;
+    }
+    .sub-title {
+        font-size: 1.5em;
+        color: #666666; /* Lighter gray for the subtitle */
+        text-align: center;
+        margin-top: 0px;
+    }
+    .emoji {
+        font-size: 0.8em; /* Adjust emoji size relative to text */
+        vertical-align: middle;
+        margin-left: 10px;
+    }
     .big-font {
         font-size:20px !important;
         font-weight: bold;
@@ -26,6 +45,15 @@ st.markdown("""
         color: #4682b4; /* SteelBlue */
     }
 </style>
+""", unsafe_allow_html=True)
+
+# Main title with emojis and custom styling
+st.markdown("""
+<h1 class="main-title">🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊 🇧🇷 <span class="emoji">☀️</span><span class="emoji">📊</span></h1>
+<p class="sub-title">Explorando Padrões Climáticos no Brasil (2020-2025) BR</p>
+""", unsafe_allow_html=True)
+
+st.markdown("""
 <p class="big-font">Explore os padrões climáticos regionais e identifique tendências e anomalias nas temperaturas, precipitações e radiação solar.</p>
 <p class="medium-font">Utilize os filtros na barra lateral para personalizar sua análise e mergulhar nos dados.</p>
 """, unsafe_allow_html=True)
@@ -149,7 +177,7 @@ try:
             df_ano_regiao = df_regiao[df_regiao['Ano'] == ano].groupby('Mês')[coluna_var].mean().reindex(meses)
             if not df_ano_regiao.empty and df_ano_regiao.dropna().any(): # Verifica se há dados válidos para plotar
                 ax.plot(meses, df_ano_regiao.values, marker='o', linestyle='-', 
-                         color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=2.0)
+                             color=cores_anos.get(ano, 'gray'), label=str(int(ano)), linewidth=2.0)
         
         ax.set_title(f"📍 {regiao}", fontsize=15, fontweight='bold', color='#2F4F4F') # DarkSlateGray
         ax.set_xlabel('Mês', fontsize=12)
