@@ -49,7 +49,7 @@ st.markdown("""
 
 # Main title with emojis and custom styling
 st.markdown("""
-<h1 class="main-title">Análise Personalizada de Radiação Global <span class="emoji">☀️</span><span class="emoji">📊</span></h1>
+<h1 class="main-title">🌎 Descobrindo o Clima do Brasil (2020-2025): Uma Jornada Interativa 📊 🇧🇷 <span class="emoji">☀️</span><span class="emoji">📊</span></h1>
 <p class="sub-title">Explorando Padrões Climáticos no Brasil (2020-2025) BR</p>
 """, unsafe_allow_html=True)
 
